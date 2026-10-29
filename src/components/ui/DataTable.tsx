@@ -60,15 +60,15 @@ export function DataTable<T>({
   totalItems,
   onPageChange,
   onPageSizeChange,
-  pageSizeOptions = [15, 25, 50],
+  pageSizeOptions = [10, 20, 50],
   className = '',
 }: DataTableProps<T>) {
   const rowHeightClass = density === 'compact' ? 'h-[38px] py-1.5' : 'h-[48px] py-2.5';
   const hasPagination = Boolean(currentPage && pageSize && totalItems !== undefined && onPageChange);
 
-  const totalPages = hasPagination ? Math.max(1, Math.ceil((totalItems || 0) / (pageSize || 15))) : 1;
-  const startItem = hasPagination ? ((currentPage || 1) - 1) * (pageSize || 15) + 1 : 1;
-  const endItem = hasPagination ? Math.min(totalItems || 0, (currentPage || 1) * (pageSize || 15)) : data.length;
+  const totalPages = hasPagination ? Math.max(1, Math.ceil((totalItems || 0) / (pageSize || 10))) : 1;
+  const startItem = hasPagination ? ((currentPage || 1) - 1) * (pageSize || 10) + 1 : 1;
+  const endItem = hasPagination ? Math.min(totalItems || 0, (currentPage || 1) * (pageSize || 10)) : data.length;
 
   return (
     <div className={`bg-white border border-[#E5E7EB] rounded-lg overflow-hidden flex flex-col ${className}`}>
@@ -181,11 +181,23 @@ export function DataTable<T>({
         <div className="px-4 py-3 border-t border-[#E5E7EB] bg-[#F9FAFB] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#6B7280]">
           <div className="flex items-center gap-3">
             <span className="tabular-nums">
-              Showing <strong className="text-[#111827] font-semibold">{totalItems === 0 ? 0 : startItem}–{endItem}</strong> of{' '}
-              <strong className="text-[#111827] font-semibold">{totalItems}</strong>
+              {totalItems !== undefined && totalItems <= (pageSize || 10) ? (
+                <>
+                  Showing <strong className="text-[#111827] font-semibold">{totalItems}</strong> of{' '}
+                  <strong className="text-[#111827] font-semibold">{totalItems}</strong> records
+                </>
+              ) : (
+                <>
+                  Showing{' '}
+                  <strong className="text-[#111827] font-semibold">
+                    {totalItems === 0 ? 0 : startItem}–{endItem}
+                  </strong>{' '}
+                  of <strong className="text-[#111827] font-semibold">{totalItems}</strong> records
+                </>
+              )}
             </span>
 
-            {onPageSizeChange && (
+            {onPageSizeChange && totalPages > 1 && (
               <div className="flex items-center gap-1.5 ml-2 border-l border-[#E5E7EB] pl-3">
                 <span>Per page:</span>
                 <select
@@ -203,31 +215,35 @@ export function DataTable<T>({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] tabular-nums">
-              Page {currentPage} of {totalPages}
-            </span>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => onPageChange?.(Math.max(1, (currentPage || 1) - 1))}
-                disabled={currentPage === 1}
-                className="p-1.5 rounded border border-[#E5E7EB] bg-white text-[#4B5563] hover:bg-[#F3F4F6] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                aria-label="Previous page"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onPageChange?.(Math.min(totalPages, (currentPage || 1) + 1))}
-                disabled={currentPage === totalPages}
-                className="p-1.5 rounded border border-[#E5E7EB] bg-white text-[#4B5563] hover:bg-[#F3F4F6] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                aria-label="Next page"
-              >
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+          {totalPages > 1 ? (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] tabular-nums">
+                Page {currentPage} of {totalPages}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onPageChange?.(Math.max(1, (currentPage || 1) - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded border border-[#E5E7EB] bg-white text-[#4B5563] hover:bg-[#F3F4F6] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onPageChange?.(Math.min(totalPages, (currentPage || 1) + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded border border-[#E5E7EB] bg-white text-[#4B5563] hover:bg-[#F3F4F6] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <span className="text-[11px] text-[#9CA3AF]">All rows displayed</span>
+          )}
         </div>
       )}
     </div>

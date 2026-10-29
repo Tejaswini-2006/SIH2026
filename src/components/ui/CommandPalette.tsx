@@ -53,8 +53,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     { id: 'risk', title: 'Risk Intelligence', desc: 'Explainable review priority scoring and formula weights' },
     { id: 'cases', title: 'Audit Cases', desc: 'Inquiry dockets and regulatory notices' },
     { id: 'reports', title: 'Reports & Export', desc: 'Statistical compliance reports and CSV exports' },
-    { id: 'audit-trail', title: 'Audit Trail', desc: 'Chronological activity log of system actions' },
-    { id: 'settings', title: 'Settings', desc: 'Demo roles, cycles, tolerance, and weights' },
   ].filter((p) => !q || p.title.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q));
 
   const matchedInstitutions = institutions

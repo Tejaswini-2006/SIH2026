@@ -87,7 +87,7 @@ interface AppContextType {
   ) => void;
 }
 
-const STORAGE_KEY = 'aervis_application_state_v1';
+const STORAGE_KEY = 'aervis_state_v2';
 
 const DEFAULT_SETTINGS: AppSettings = {
   currentRole: 'AICTE Analyst',

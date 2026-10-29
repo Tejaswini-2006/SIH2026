@@ -28,13 +28,30 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
   onOpenCase,
   onNavigateToRecords,
 }) => {
-  const { exceptions, auditCases, submissions, getInstitutionRisk, setInstitutionRiskOverride, removeInstitutionRiskOverride } = useApp();
-  const [activeTab, setActiveTab] = useState<'overview' | 'risk' | 'exceptions' | 'submissions' | 'cases'>('overview');
+  const {
+    exceptions,
+    auditCases,
+    submissions,
+    auditTrail,
+    getInstitutionRisk,
+    setInstitutionRiskOverride,
+    removeInstitutionRiskOverride,
+  } = useApp();
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'risk' | 'exceptions' | 'submissions' | 'cases' | 'activity'
+  >('overview');
 
   const riskProfile = getInstitutionRisk(institution.id);
   const instExceptions = exceptions.filter((e) => e.institutionId === institution.id);
   const instSubmissions = submissions.filter((s) => s.institutionId === institution.id);
   const instCases = auditCases.filter((c) => c.institutionId === institution.id);
+  const instActivity = auditTrail.filter(
+    (ev) =>
+      ev.affectedRef.includes(institution.code) ||
+      ev.affectedRef.includes(institution.id) ||
+      ev.details.toLowerCase().includes(institution.name.toLowerCase()) ||
+      institution.programmes.some((p) => ev.affectedRef.includes(p.id))
+  );
 
   const [showOverrideForm, setShowOverrideForm] = useState(false);
   const [overrideScoreInput, setOverrideScoreInput] = useState(riskProfile.effectiveScore.toString());
@@ -59,6 +76,7 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
     { id: 'exceptions', label: 'Exceptions', count: instExceptions.length },
     { id: 'submissions', label: 'Submissions', count: instSubmissions.length },
     { id: 'cases', label: 'Cases', count: instCases.length },
+    { id: 'activity', label: 'Activity', count: instActivity.length },
   ];
 
   return (
@@ -365,6 +383,33 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
                   <p className="text-[#374151]">{cs.summary}</p>
                 </div>
               ))
+            )}
+          </div>
+        )}
+
+        {/* Tab 6: Activity History */}
+        {activeTab === 'activity' && (
+          <div className="space-y-3">
+            {instActivity.length === 0 ? (
+              <div className="text-center py-8 text-[#6B7280]">No logged activity for this institution.</div>
+            ) : (
+              <div className="relative pl-4 space-y-4 before:absolute before:left-1.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#E5E7EB]">
+                {instActivity.map((ev) => (
+                  <div key={ev.id} className="relative text-xs">
+                    <div className="absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full bg-[#2457D6] ring-4 ring-white" />
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-[#111827]">{ev.action}</span>
+                      <span className="text-[11px] font-mono text-[#6B7280]">{ev.timestamp.slice(0, 16)}</span>
+                    </div>
+                    <p className="text-[11px] text-[#4B5563] mt-0.5 leading-snug">{ev.details}</p>
+                    <div className="flex items-center gap-2 mt-1 text-[10px] text-[#6B7280]">
+                      <span className="font-medium text-[#374151]">{ev.actorRole}</span>
+                      <span>·</span>
+                      <span className="font-mono">{ev.affectedRef}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

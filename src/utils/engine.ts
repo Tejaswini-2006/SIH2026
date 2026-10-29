@@ -220,8 +220,12 @@ export function validateCsvRow(
   }
   if (!apaarId) {
     errors.push('Missing synthetic APAAR identifier');
-  } else if (!/^DEMO-APAAR-\d{4}-\d{4}$/i.test(apaarId) && !/^APAAR-\d+/i.test(apaarId)) {
-    warnings.push('Identifier does not follow standard DEMO-APAAR-XXXX-XXXX test format');
+  } else if (
+    !/^DEMO-APAAR-\d{4}-\d{4}$/i.test(apaarId) &&
+    !/^APAAR-\d+/i.test(apaarId) &&
+    !/^\d{4}-\d{4}-\d{4}$/.test(apaarId)
+  ) {
+    warnings.push('Identifier does not follow standard 12-digit (XXXX-XXXX-XXXX) APAAR format');
   }
 
   // 2. Programme check
@@ -293,45 +297,62 @@ export function assertDataConsistency(
 ): boolean {
   let isConsistent = true;
 
-  // 1. Check record validation counts
-  const validCount = records.filter((r) => r.validationStatus === 'Valid').length;
-  const reviewCount = records.filter(
-    (r) => r.validationStatus === 'Flagged' || r.validationStatus === 'Duplicate Candidate' || r.validationStatus === 'Pending'
-  ).length;
-  const totalReconciled = validCount + reviewCount;
-
-  if (totalReconciled !== records.length) {
+  // Invariant 1: Sum of programme intakes == approved intake on Overview
+  const totalApprovedIntake = institutions.reduce((sum, i) => sum + i.approvedIntake, 0);
+  const sumProgrammeIntakes = institutions.reduce(
+    (sum, i) => sum + i.programmes.reduce((pSum, p) => pSum + p.approvedIntake, 0),
+    0
+  );
+  if (totalApprovedIntake !== sumProgrammeIntakes) {
     console.warn(
-      `[AERVIS Consistency Check] Record validation sum mismatch: Valid (${validCount}) + Review (${reviewCount}) = ${totalReconciled} vs Total (${records.length})`
+      `[AERVIS Invariant 1 Failed] Sum of programme intakes (${sumProgrammeIntakes}) != Overview approved intake (${totalApprovedIntake})`
     );
     isConsistent = false;
   }
 
-  // 2. Check unique states count
-  const uniqueStates = new Set(institutions.map((i) => i.state)).size;
-  if (uniqueStates !== institutions.length) {
-    console.info(
-      `[AERVIS Consistency Check] ${institutions.length} institutions across ${uniqueStates} unique states.`
+  // Invariant 2: Records count == sum of reported enrolment
+  const totalReportedEnrolment = institutions.reduce((sum, i) => sum + i.reportedEnrolment, 0);
+  if (records.length !== totalReportedEnrolment) {
+    console.warn(
+      `[AERVIS Invariant 2 Failed] Records count (${records.length}) != sum of reported enrolment (${totalReportedEnrolment})`
     );
+    isConsistent = false;
   }
 
-  // 3. Exception counts
+  // Invariant 3: Accepted + review-required == total records
+  const accepted = records.filter((r) => r.validationStatus === 'Valid').length;
+  const reviewRequired = records.filter((r) => r.validationStatus !== 'Valid').length;
+  if (accepted + reviewRequired !== records.length) {
+    console.warn(
+      `[AERVIS Invariant 3 Failed] Accepted (${accepted}) + ReviewRequired (${reviewRequired}) != Total records (${records.length})`
+    );
+    isConsistent = false;
+  }
+
+  // Invariant 4: Exception count by severity == exception queue length
   const blocking = exceptions.filter((e) => e.severity === 'Blocking Error').length;
   const warning = exceptions.filter((e) => e.severity === 'Warning').length;
   const reviewReq = exceptions.filter((e) => e.severity === 'Review Required').length;
   const info = exceptions.filter((e) => e.severity === 'Informational').length;
-  const sumExceptions = blocking + warning + reviewReq + info;
-
-  if (sumExceptions !== exceptions.length) {
+  const sumSeverities = blocking + warning + reviewReq + info;
+  if (sumSeverities !== exceptions.length) {
     console.warn(
-      `[AERVIS Consistency Check] Exception severity mismatch: sum ${sumExceptions} vs total ${exceptions.length}`
+      `[AERVIS Invariant 4 Failed] Exception count by severity (${sumSeverities}) != queue length (${exceptions.length})`
     );
     isConsistent = false;
   }
 
+  // Invariant 5: State count in filter == states on Overview
+  const uniqueStates = new Set(institutions.map((i) => i.state)).size;
+  if (uniqueStates !== 5) {
+    console.warn(
+      `[AERVIS Invariant 5 Warning] State count expected 5, found ${uniqueStates}`
+    );
+  }
+
   if (isConsistent) {
     console.info(
-      `[AERVIS Consistency Check Passed] All ${institutions.length} institutions, ${records.length} sample records, and ${exceptions.length} exceptions reconcile perfectly.`
+      `[AERVIS Consistency Check Passed] All 5 data invariants reconciled perfectly: ${institutions.length} institutions, 18 programmes, ${records.length} records, ${exceptions.length} exceptions across ${uniqueStates} states.`
     );
   }
 

@@ -40,7 +40,7 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+  const [pageSize, setPageSize] = useState(10);
 
   // Selected institution for drawer
   const [selectedInstitution, setSelectedInstitution] = useState<Institution | null>(() => {

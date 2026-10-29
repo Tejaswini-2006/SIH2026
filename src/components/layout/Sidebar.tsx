@@ -8,8 +8,6 @@ import {
   ShieldAlert,
   FolderKanban,
   FileSpreadsheet,
-  History,
-  Settings,
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
@@ -25,9 +23,7 @@ export type NavSection =
   | 'exceptions'
   | 'risk'
   | 'cases'
-  | 'reports'
-  | 'audit-trail'
-  | 'settings';
+  | 'reports';
 
 interface SidebarProps {
   currentSection: NavSection;
@@ -86,13 +82,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'risk' as NavSection, label: 'Risk Intelligence', icon: ShieldAlert },
         { id: 'reports' as NavSection, label: 'Reports', icon: FileSpreadsheet },
-      ],
-    },
-    {
-      group: 'GOVERN',
-      items: [
-        { id: 'audit-trail' as NavSection, label: 'Audit Trail', icon: History },
-        { id: 'settings' as NavSection, label: 'Settings', icon: Settings },
       ],
     },
   ];

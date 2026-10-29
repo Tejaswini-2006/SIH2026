@@ -19,8 +19,6 @@ export function useHashRouter() {
       'risk',
       'cases',
       'reports',
-      'audit-trail',
-      'settings',
     ];
 
     const section = (validSections.includes(path as NavSection) ? path : 'overview') as NavSection;

@@ -30,6 +30,7 @@ export const ExceptionsView: React.FC = () => {
     dismissException,
     assignException,
     escalateException,
+    auditTrail,
     settings,
   } = useApp();
   const { showToast } = useToast();
@@ -405,6 +406,34 @@ export const ExceptionsView: React.FC = () => {
                     <strong>Dismissal Justification:</strong> {selectedException.dismissalReason}
                   </div>
                 )}
+
+                {/* Exception Activity Timeline */}
+                <div className="space-y-2 text-xs pt-2 border-t border-[#E5E7EB]">
+                  <span className="font-semibold text-[#111827]">Audit Activity History</span>
+                  <div className="space-y-2 border-l-2 border-[#E5E7EB] pl-3 ml-1.5">
+                    {auditTrail.filter((ev) => ev.affectedRef.includes(selectedException.id)).length > 0 ? (
+                      auditTrail
+                        .filter((ev) => ev.affectedRef.includes(selectedException.id))
+                        .map((ev) => (
+                          <div key={ev.id} className="space-y-0.5 relative text-xs">
+                            <div className="w-2 h-2 rounded-full bg-[#2457D6] absolute -left-[17px] top-1" />
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-[#111827]">{ev.action}</span>
+                              <span className="text-[10px] font-mono text-[#6B7280]">
+                                {ev.timestamp.slice(0, 16)}
+                              </span>
+                            </div>
+                            <p className="text-[#4B5563] text-[11px]">{ev.details}</p>
+                            <p className="text-[10px] text-[#6B7280]">Role: {ev.actorRole}</p>
+                          </div>
+                        ))
+                    ) : (
+                      <div className="text-[11px] text-[#9CA3AF]">
+                        Initial exception detected by automated scrutiny engine.
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 {/* Action Buttons */}
                 <div className="pt-3 border-t border-[#E5E7EB] space-y-2">

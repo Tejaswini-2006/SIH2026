@@ -180,14 +180,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
           >
             <div className="space-y-4">
               {institutions.slice(0, 6).map((inst) => {
-                const maxScale = 500; // Shared scale across all institutions
+                const maxScale = 40; // Standard scale for 6-15 seat programmes
                 const approvedPct = (inst.approvedIntake / maxScale) * 100;
                 const reportedPct = (inst.reportedEnrolment / maxScale) * 100;
                 const excess = inst.reportedEnrolment - inst.approvedIntake;
                 const isOver = excess > 0;
 
-                // Color rule from item 15:
-                // neutral/blue below 100%, amber when exactly 100% or within tolerance, red strictly over quota
                 const barColor = isOver
                   ? 'bg-rose-600'
                   : inst.reportedEnrolment === inst.approvedIntake
@@ -211,16 +209,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
 
                     {/* Multi-track Bar with Quota Tick Marker */}
                     <div className="h-3 w-full bg-[#F3F4F6] rounded relative overflow-visible">
-                      {/* Bar Fill */}
                       <div
                         className={`h-full rounded ${barColor}`}
                         style={{ width: `${Math.min(100, reportedPct)}%` }}
                       />
-
-                      {/* Quota Tick Marker Line */}
                       <div
                         className="absolute top-[-3px] bottom-[-3px] w-0.5 bg-slate-900 z-10"
-                        style={{ left: `${approvedPct}%` }}
+                        style={{ left: `${Math.min(100, approvedPct)}%` }}
                         title={`Approved Quota: ${inst.approvedIntake}`}
                       />
                     </div>
@@ -244,16 +239,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
                   <span>Approved intake marker</span>
                 </div>
               </div>
-              <span className="text-[11px] font-mono">Shared Scale: 0–500 seats</span>
+              <span className="text-[11px] font-mono">Normalized scale: 0–40 seats</span>
             </div>
           </Card>
         </div>
 
-        {/* Right Column (5 cols): Institutions Requiring Attention */}
+        {/* Right Column (5 cols): Institutions Requiring Attention (Top 3) */}
         <div className="lg:col-span-5">
           <Card
             title="Institutions Requiring Attention"
-            description="High review priority dockets triaged by capacity overrun and collision density."
+            description="Top 3 review priority dockets triaged by capacity overrun and collision density."
             action={
               <button
                 type="button"
@@ -265,47 +260,55 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
             }
           >
             <div className="divide-y divide-[#F3F4F6] -my-2">
-              {highRiskInstitutions.slice(0, 4).map((inst) => {
-                const risk = getInstitutionRisk(inst.id);
-                const excess = inst.reportedEnrolment - inst.approvedIntake;
+              {[...institutions]
+                .sort((a, b) => getInstitutionRisk(b.id).effectiveScore - getInstitutionRisk(a.id).effectiveScore)
+                .slice(0, 3)
+                .map((inst) => {
+                  const risk = getInstitutionRisk(inst.id);
+                  const excess = inst.reportedEnrolment - inst.approvedIntake;
 
-                return (
-                  <div
-                    key={inst.id}
-                    onClick={() => onSelectInstitution?.(inst.id)}
-                    className="py-3 flex items-center justify-between gap-3 hover:bg-[#F9FAFB] cursor-pointer rounded px-2 -mx-2 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-xs text-[#111827] truncate">{inst.name}</span>
-                        <span className="font-mono text-[11px] text-[#6B7280]">{inst.code}</span>
+                  return (
+                    <div
+                      key={inst.id}
+                      onClick={() => onSelectInstitution?.(inst.id)}
+                      className="py-3 flex items-center justify-between gap-3 hover:bg-[#F9FAFB] cursor-pointer rounded px-2 -mx-2 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-xs text-[#111827] truncate">{inst.name}</span>
+                          <span className="font-mono text-[11px] text-[#6B7280]">{inst.code}</span>
+                        </div>
+                        <p className="text-[11px] text-[#6B7280] mt-0.5 truncate">
+                          {inst.state} · Intake: {inst.approvedIntake} / Reported: {inst.reportedEnrolment}
+                          {excess > 0 && <span className="text-rose-700 font-medium ml-1">(+{excess} seats)</span>}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-[#6B7280] mt-0.5 truncate">
-                        {inst.state} · Intake: {inst.approvedIntake} / Reported: {inst.reportedEnrolment}
-                        {excess > 0 && <span className="text-rose-700 font-medium ml-1">(+{excess} seats)</span>}
-                      </p>
-                    </div>
 
-                    <div className="text-right shrink-0">
-                      <div className="font-mono font-bold text-xs text-rose-700 tabular-nums">
-                        {risk.effectiveScore}/100
+                      <div className="text-right shrink-0">
+                        <div className="font-mono font-bold text-xs text-rose-700 tabular-nums">
+                          {risk.effectiveScore}/100
+                        </div>
+                        <StatusChip
+                          label={risk.tier}
+                          variant={risk.tier === 'High' ? 'danger' : risk.tier === 'Moderate' ? 'warning' : 'success'}
+                          size="sm"
+                          showDot={false}
+                        />
                       </div>
-                      <StatusChip label={risk.tier} variant="danger" size="sm" showDot={false} />
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
             </div>
           </Card>
         </div>
       </div>
 
-      {/* Secondary Grid: Severity Breakdown + Priority Tiers + Recent Ingestions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Secondary Grid: Severity Breakdown + Priority Tiers + Recent Ingestions + Recent Activity */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Exceptions by Severity */}
         <Card
           title="Exceptions by Severity"
-          description="Active unresolved findings categorized by regulatory impact."
+          description="Active findings by regulatory impact."
           action={
             <button
               type="button"
@@ -316,11 +319,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
             </button>
           }
         >
-          <div className="space-y-3 text-xs">
+          <div className="space-y-2.5 text-xs">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-rose-600" />
-                <span className="text-[#374151]">Blocking Errors</span>
+                <span className="text-[#374151]">Blocking</span>
               </div>
               <span className="font-mono font-semibold text-rose-700 tabular-nums">{blockingExceptions}</span>
             </div>
@@ -331,8 +334,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
               />
             </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between pt-0.5">
+              <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-amber-500" />
                 <span className="text-[#374151]">Warnings</span>
               </div>
@@ -345,10 +348,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
               />
             </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between pt-0.5">
+              <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#2457D6]" />
-                <span className="text-[#374151]">Review Required</span>
+                <span className="text-[#374151]">Review Req.</span>
               </div>
               <span className="font-mono font-semibold text-blue-700 tabular-nums">{reviewExceptions}</span>
             </div>
@@ -359,10 +362,10 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
               />
             </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between pt-0.5">
+              <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-slate-400" />
-                <span className="text-[#374151]">Informational</span>
+                <span className="text-[#374151]">Info</span>
               </div>
               <span className="font-mono font-semibold text-[#6B7280] tabular-nums">{infoExceptions}</span>
             </div>
@@ -377,8 +380,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
 
         {/* Priority Tiers */}
         <Card
-          title="Review Priority Distribution"
-          description="Institutions classified by explainable review-priority engine."
+          title="Priority Tiers"
+          description="Classification distribution."
           action={
             <button
               type="button"
@@ -389,32 +392,29 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
             </button>
           }
         >
-          <div className="grid grid-cols-3 gap-2 text-center text-xs mt-2">
-            <div className="p-3 rounded-lg bg-rose-50/70 border border-rose-200">
-              <div className="text-[11px] font-semibold text-rose-800">High (&ge;70)</div>
-              <div className="text-xl font-bold font-mono text-rose-700 mt-1 tabular-nums">{highRiskInstitutions.length}</div>
-              <div className="text-[10px] text-rose-600 mt-0.5">Priority Audit</div>
+          <div className="grid grid-cols-3 gap-1.5 text-center text-xs mt-1">
+            <div className="p-2 rounded bg-rose-50/70 border border-rose-200">
+              <div className="text-[10px] font-semibold text-rose-800">High</div>
+              <div className="text-lg font-bold font-mono text-rose-700 mt-0.5 tabular-nums">{highRiskInstitutions.length}</div>
             </div>
-            <div className="p-3 rounded-lg bg-amber-50/70 border border-amber-200">
-              <div className="text-[11px] font-semibold text-amber-800">Moderate (40–69)</div>
-              <div className="text-xl font-bold font-mono text-amber-700 mt-1 tabular-nums">{moderateRiskInstitutions.length}</div>
-              <div className="text-[10px] text-amber-600 mt-0.5">Sample Check</div>
+            <div className="p-2 rounded bg-amber-50/70 border border-amber-200">
+              <div className="text-[10px] font-semibold text-amber-800">Mod</div>
+              <div className="text-lg font-bold font-mono text-amber-700 mt-0.5 tabular-nums">{moderateRiskInstitutions.length}</div>
             </div>
-            <div className="p-3 rounded-lg bg-emerald-50/70 border border-emerald-200">
-              <div className="text-[11px] font-semibold text-emerald-800">Low (&lt;40)</div>
-              <div className="text-xl font-bold font-mono text-emerald-700 mt-1 tabular-nums">{lowRiskInstitutions.length}</div>
-              <div className="text-[10px] text-emerald-600 mt-0.5">Nominal</div>
+            <div className="p-2 rounded bg-emerald-50/70 border border-emerald-200">
+              <div className="text-[10px] font-semibold text-emerald-800">Low</div>
+              <div className="text-lg font-bold font-mono text-emerald-700 mt-0.5 tabular-nums">{lowRiskInstitutions.length}</div>
             </div>
           </div>
-          <p className="text-[11px] text-[#6B7280] mt-4 leading-relaxed">
-            Scores triage auditor attention. Elevated priority does not constitute a finding of fraud or misconduct.
+          <p className="text-[10px] text-[#6B7280] mt-3 leading-relaxed">
+            Scores triage auditor attention. Elevated priority does not constitute a finding of fraud.
           </p>
         </Card>
 
-        {/* Recent Ingestions */}
+        {/* Recent Ingestions (Latest 3) */}
         <Card
           title="Recent Ingestions"
-          description="Latest admission manifests processed into the portal."
+          description="Latest 3 admission manifests."
           action={
             <button
               type="button"
@@ -426,27 +426,52 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
           }
         >
           <div className="divide-y divide-[#F3F4F6] -my-2 text-xs">
-            {recentSubmissions.map((sub) => (
-              <div key={sub.id} className="py-2.5 flex items-center justify-between gap-3">
+            {submissions.slice(0, 3).map((sub) => (
+              <div key={sub.id} className="py-2 flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-medium text-[#111827] truncate">{sub.institutionName}</p>
-                  <p className="text-[11px] text-[#6B7280] font-mono mt-0.5">{sub.fileName}</p>
+                  <p className="font-medium text-[11px] text-[#111827] truncate">{sub.institutionName}</p>
+                  <p className="text-[10px] text-[#6B7280] font-mono">{sub.fileName}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <span className="font-mono text-xs font-semibold text-emerald-700 tabular-nums">
+                  <span className="font-mono text-[11px] font-semibold text-emerald-700 tabular-nums">
                     {sub.acceptedCount}/{sub.totalRows}
                   </span>
-                  <p className="text-[10px] text-[#6B7280]">{sub.submissionDate.slice(0, 10)}</p>
+                  <p className="text-[10px] text-[#6B7280]">{sub.submissionDate.slice(5, 10)}</p>
                 </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Recent Activity (Latest 6 events) */}
+        <Card
+          title="Recent Activity"
+          description="Latest 6 regulatory audit events."
+        >
+          <div className="divide-y divide-[#F3F4F6] -my-2 text-xs">
+            {auditTrail.slice(0, 6).map((ev) => (
+              <div key={ev.id} className="py-1.5 flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-[11px] text-[#111827] truncate">{ev.action}</span>
+                    <span className="text-[10px] text-[#6B7280]">· {ev.actorRole.replace('Administrator', 'Admin')}</span>
+                  </div>
+                  <div className="font-mono text-[10px] text-[#2457D6] truncate">
+                    {ev.affectedRef}
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono text-[#9CA3AF] shrink-0 whitespace-nowrap">
+                  {ev.timestamp.slice(11, 16)}
+                </span>
               </div>
             ))}
           </div>
         </Card>
       </div>
 
-      {/* Sample Record Disclaimer Caption */}
+      {/* Dataset Verification Caption */}
       <div className="text-[11px] text-[#6B7280] text-center pt-2">
-        Student-level sample: {records.length} records of {reportedEnrolment.toLocaleString()} reported enrolments (aggregated from institutional batch registers)
+        Student-level admission records: {records.length} records matching {reportedEnrolment.toLocaleString()} reported enrolments across {institutions.length} approved institutions.
       </div>
     </div>
   );

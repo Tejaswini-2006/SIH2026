@@ -12,11 +12,14 @@ import {
   ShieldCheck,
   TrendingUp,
   BarChart2,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../ui/ToastContext';
 import { Institution, RiskRuleWeights } from '../../types';
-import { calculateInstitutionRisk } from '../../utils/engine';
+import { calculateInstitutionRisk, DEFAULT_RISK_WEIGHTS } from '../../utils/engine';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
 import { StatusChip } from '../ui/StatusChip';
@@ -32,6 +35,7 @@ export const RiskIntelligenceView: React.FC = () => {
     removeInstitutionRiskOverride,
     settings,
     updateRuleWeights,
+    updateTolerance,
   } = useApp();
   const { showToast } = useToast();
 
@@ -43,9 +47,10 @@ export const RiskIntelligenceView: React.FC = () => {
   const [overrideScore, setOverrideScore] = useState('');
   const [overrideReason, setOverrideReason] = useState('');
 
-  // Config weights modal
-  const [weightsModalOpen, setWeightsModalOpen] = useState(false);
-  const [tempWeights, setTempWeights] = useState<RiskRuleWeights>(settings.ruleWeights);
+  // Collapsible Scoring rules panel state
+  const [isScoringRulesOpen, setIsScoringRulesOpen] = useState(false);
+  const [weights, setWeights] = useState<RiskRuleWeights>(settings.ruleWeights);
+  const [tolerance, setTolerance] = useState<number>(settings.intakeTolerancePercentage);
 
   const selectedInst = institutions.find((i) => i.id === selectedInstId) || institutions[0];
   const riskProfile = selectedInst ? getInstitutionRisk(selectedInst.id) : null;
@@ -83,24 +88,33 @@ export const RiskIntelligenceView: React.FC = () => {
     showToast(`Removed manual override for ${selectedInst.name}`, 'info');
   };
 
-  const handleSaveWeights = (e: React.FormEvent) => {
+  const totalWeight =
+    weights.intakeOverrun +
+    weights.duplicateEnrolment +
+    weights.exceptionDensity +
+    weights.lateSubmission +
+    weights.corroborationGap;
+
+  const handleSaveScoringRules = (e: React.FormEvent) => {
     e.preventDefault();
-    const sum =
-      tempWeights.intakeOverrun +
-      tempWeights.duplicateEnrolment +
-      tempWeights.exceptionDensity +
-      tempWeights.lateSubmission +
-      tempWeights.corroborationGap;
-    if (sum !== 100) {
+    if (totalWeight !== 100) {
       showToast('Weights must sum to exactly 100%', 'error');
       return;
     }
-    updateRuleWeights(tempWeights);
-    setWeightsModalOpen(false);
-    showToast('Rule weights calibrated and risk scores updated', 'success');
+    updateRuleWeights(weights);
+    updateTolerance(tolerance);
+    showToast('Saved scoring rules and recalculated risk priorities', 'success');
   };
 
-  // Before & After preview calculation for weights modal
+  const handleResetToDefaultRules = () => {
+    setWeights(DEFAULT_RISK_WEIGHTS);
+    setTolerance(0);
+    updateRuleWeights(DEFAULT_RISK_WEIGHTS);
+    updateTolerance(0);
+    showToast('Reset scoring rules to default parameters (sum: 100%)', 'neutral');
+  };
+
+  // Before & After preview calculation for scoring rules
   const beforeCounts = useMemo(() => {
     let high = 0,
       mod = 0,
@@ -119,20 +133,13 @@ export const RiskIntelligenceView: React.FC = () => {
       mod = 0,
       low = 0;
     institutions.forEach((inst) => {
-      const simulated = calculateInstitutionRisk(inst, records, exceptions, tempWeights);
+      const simulated = calculateInstitutionRisk(inst, records, exceptions, weights);
       if (simulated.tier === 'High') high++;
       else if (simulated.tier === 'Moderate') mod++;
       else low++;
     });
     return { high, mod, low };
-  }, [institutions, records, exceptions, tempWeights]);
-
-  const tempTotalWeight =
-    tempWeights.intakeOverrun +
-    tempWeights.duplicateEnrolment +
-    tempWeights.exceptionDensity +
-    tempWeights.lateSubmission +
-    tempWeights.corroborationGap;
+  }, [institutions, records, exceptions, weights]);
 
   return (
     <div className="max-w-[1360px] mx-auto space-y-4">
@@ -143,17 +150,174 @@ export const RiskIntelligenceView: React.FC = () => {
         actions={
           <button
             type="button"
-            onClick={() => {
-              setTempWeights(settings.ruleWeights);
-              setWeightsModalOpen(true);
-            }}
-            className="px-3 py-1.5 text-xs font-medium text-[#374151] bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] rounded-md flex items-center gap-1.5 transition-colors cursor-pointer"
+            onClick={() => setIsScoringRulesOpen((prev) => !prev)}
+            className="px-3 py-1.5 text-xs font-medium text-[#111827] bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
           >
-            <Sliders className="w-3.5 h-3.5 text-[#6B7280]" />
-            <span>Calibrate Engine Weights</span>
+            <SlidersHorizontal className="w-3.5 h-3.5 text-[#2457D6]" />
+            <span>Scoring Rules ({isScoringRulesOpen ? 'Hide' : 'Configure'})</span>
+            {isScoringRulesOpen ? <ChevronUp className="w-3.5 h-3.5 text-[#6B7280]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#6B7280]" />}
           </button>
         }
       />
+
+      {/* Collapsible Scoring Rules Panel */}
+      {isScoringRulesOpen && (
+        <Card
+          title="Scoring Rules & Review Calibration"
+          description="Adjust risk indicator weights and intake tolerance threshold. Updates recalculate review-priority scores deterministically."
+          actions={
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-xs font-mono font-semibold px-2 py-0.5 rounded ${
+                  totalWeight === 100
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-rose-50 text-rose-700 border border-rose-200'
+                }`}
+              >
+                Weight Sum: {totalWeight}% / 100%
+              </span>
+            </div>
+          }
+        >
+          <form onSubmit={handleSaveScoringRules} className="space-y-4 text-xs pt-1">
+            {/* 5 Indicator Weight Sliders + Tolerance Slider */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB]">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-[#111827]">Intake Overrun:</span>
+                  <span className="font-mono text-xs font-bold text-[#2457D6]">{weights.intakeOverrun}%</span>
+                </div>
+                <p className="text-[11px] text-[#6B7280] mb-2">Weight for admissions beyond approved capacity</p>
+                <input
+                  type="range"
+                  min="0"
+                  max="60"
+                  value={weights.intakeOverrun}
+                  onChange={(e) => setWeights({ ...weights, intakeOverrun: parseInt(e.target.value) || 0 })}
+                  className="w-full accent-[#2457D6] cursor-pointer"
+                />
+              </div>
+
+              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB]">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-[#111827]">Duplicate Enrolment:</span>
+                  <span className="font-mono text-xs font-bold text-[#2457D6]">{weights.duplicateEnrolment}%</span>
+                </div>
+                <p className="text-[11px] text-[#6B7280] mb-2">Weight for cross-institution duplicate collisions</p>
+                <input
+                  type="range"
+                  min="0"
+                  max="60"
+                  value={weights.duplicateEnrolment}
+                  onChange={(e) => setWeights({ ...weights, duplicateEnrolment: parseInt(e.target.value) || 0 })}
+                  className="w-full accent-[#2457D6] cursor-pointer"
+                />
+              </div>
+
+              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB]">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-[#111827]">Exception Density:</span>
+                  <span className="font-mono text-xs font-bold text-[#2457D6]">{weights.exceptionDensity}%</span>
+                </div>
+                <p className="text-[11px] text-[#6B7280] mb-2">Weight for ratio of exceptions to total intake</p>
+                <input
+                  type="range"
+                  min="0"
+                  max="60"
+                  value={weights.exceptionDensity}
+                  onChange={(e) => setWeights({ ...weights, exceptionDensity: parseInt(e.target.value) || 0 })}
+                  className="w-full accent-[#2457D6] cursor-pointer"
+                />
+              </div>
+
+              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB]">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-[#111827]">Late Submission:</span>
+                  <span className="font-mono text-xs font-bold text-[#2457D6]">{weights.lateSubmission}%</span>
+                </div>
+                <p className="text-[11px] text-[#6B7280] mb-2">Weight for filing past reporting deadline</p>
+                <input
+                  type="range"
+                  min="0"
+                  max="60"
+                  value={weights.lateSubmission}
+                  onChange={(e) => setWeights({ ...weights, lateSubmission: parseInt(e.target.value) || 0 })}
+                  className="w-full accent-[#2457D6] cursor-pointer"
+                />
+              </div>
+
+              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB]">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-[#111827]">Corroboration Gap:</span>
+                  <span className="font-mono text-xs font-bold text-[#2457D6]">{weights.corroborationGap}%</span>
+                </div>
+                <p className="text-[11px] text-[#6B7280] mb-2">Weight for missing APAAR identity links</p>
+                <input
+                  type="range"
+                  min="0"
+                  max="60"
+                  value={weights.corroborationGap}
+                  onChange={(e) => setWeights({ ...weights, corroborationGap: parseInt(e.target.value) || 0 })}
+                  className="w-full accent-[#2457D6] cursor-pointer"
+                />
+              </div>
+
+              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB]">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-semibold text-[#111827]">Intake Tolerance:</span>
+                  <span className="font-mono text-xs font-bold text-[#2457D6]">{tolerance}%</span>
+                </div>
+                <p className="text-[11px] text-[#6B7280] mb-2">Allowable margin before excess seats trigger overrun exceptions</p>
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  step="1"
+                  value={tolerance}
+                  onChange={(e) => setTolerance(parseInt(e.target.value) || 0)}
+                  className="w-full accent-[#2457D6] cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Impact Simulation Bar & Action Buttons */}
+            <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB] flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-[11px] font-semibold text-[#4B5563]">Priority Impact:</span>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-800 font-medium border border-rose-200">
+                    High: {beforeCounts.high} → <strong>{afterCounts.high}</strong>
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-medium border border-amber-200">
+                    Moderate: {beforeCounts.mod} → <strong>{afterCounts.mod}</strong>
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-medium border border-emerald-200">
+                    Low: {beforeCounts.low} → <strong>{afterCounts.low}</strong>
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleResetToDefaultRules}
+                  className="px-2.5 py-1 text-xs text-[#4B5563] hover:text-[#111827] hover:bg-[#E5E7EB] border border-[#D1D5DB] rounded-md flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Reset to Default</span>
+                </button>
+                <button
+                  type="submit"
+                  disabled={totalWeight !== 100}
+                  className="px-3.5 py-1 text-xs font-medium text-white bg-[#2457D6] hover:bg-blue-700 rounded-md disabled:opacity-40 shadow-xs transition-colors cursor-pointer"
+                >
+                  Save Scoring Rules
+                </button>
+              </div>
+            </div>
+          </form>
+        </Card>
+      )}
 
       {/* Regulatory Safeguards Callout Box */}
       <div className="p-3.5 bg-[#0B1F3A] text-slate-200 rounded-lg border border-[#1E3A8A] text-xs space-y-1.5">
@@ -471,177 +635,6 @@ export const RiskIntelligenceView: React.FC = () => {
         </div>
       )}
 
-      {/* Recalibrate Engine Weights Modal */}
-      {weightsModalOpen && (
-        <div className="fixed inset-0 bg-[#0B1F3A]/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl border border-[#E5E7EB] max-w-lg w-full p-5 text-[#111827] space-y-4">
-            <h3 className="text-sm font-bold text-[#111827]">Calibrate Risk Engine Rule Weights</h3>
-            <p className="text-xs text-[#6B7280]">
-              Adjust indicator weight distribution. Modifying weights deterministically updates priority
-              scores across all institutions.
-            </p>
-
-            <form onSubmit={handleSaveWeights} className="space-y-3.5 text-xs">
-              <div>
-                <div className="flex justify-between font-medium text-[#374151] mb-1">
-                  <span>Intake Overrun Weight:</span>
-                  <span className="font-mono tabular-nums">{tempWeights.intakeOverrun}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="50"
-                  value={tempWeights.intakeOverrun}
-                  onChange={(e) =>
-                    setTempWeights({ ...tempWeights, intakeOverrun: parseInt(e.target.value) || 0 })
-                  }
-                  className="w-full accent-[#2457D6] cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between font-medium text-[#374151] mb-1">
-                  <span>Cross-Institution Duplicate Weight:</span>
-                  <span className="font-mono tabular-nums">{tempWeights.duplicateEnrolment}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="50"
-                  value={tempWeights.duplicateEnrolment}
-                  onChange={(e) =>
-                    setTempWeights({
-                      ...tempWeights,
-                      duplicateEnrolment: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className="w-full accent-[#2457D6] cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between font-medium text-[#374151] mb-1">
-                  <span>Exception Density Weight:</span>
-                  <span className="font-mono tabular-nums">{tempWeights.exceptionDensity}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="50"
-                  value={tempWeights.exceptionDensity}
-                  onChange={(e) =>
-                    setTempWeights({
-                      ...tempWeights,
-                      exceptionDensity: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className="w-full accent-[#2457D6] cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between font-medium text-[#374151] mb-1">
-                  <span>Late Submissions Weight:</span>
-                  <span className="font-mono tabular-nums">{tempWeights.lateSubmission}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="50"
-                  value={tempWeights.lateSubmission}
-                  onChange={(e) =>
-                    setTempWeights({
-                      ...tempWeights,
-                      lateSubmission: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className="w-full accent-[#2457D6] cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between font-medium text-[#374151] mb-1">
-                  <span>Corroboration Gaps Weight:</span>
-                  <span className="font-mono tabular-nums">{tempWeights.corroborationGap}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="50"
-                  value={tempWeights.corroborationGap}
-                  onChange={(e) =>
-                    setTempWeights({
-                      ...tempWeights,
-                      corroborationGap: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className="w-full accent-[#2457D6] cursor-pointer"
-                />
-              </div>
-
-              {/* Before & After Preview of Priority Bands */}
-              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB] space-y-2">
-                <span className="text-[11px] font-semibold text-[#4B5563] block">
-                  Impact Simulation (Before vs. After by Priority Band):
-                </span>
-                <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
-                  <div className="p-1.5 rounded bg-rose-50/60 border border-rose-200">
-                    <span className="text-rose-800 font-semibold block">High</span>
-                    <span className="font-mono tabular-nums text-rose-900">
-                      {beforeCounts.high} → <strong>{afterCounts.high}</strong>
-                    </span>
-                  </div>
-                  <div className="p-1.5 rounded bg-amber-50/60 border border-amber-200">
-                    <span className="text-amber-800 font-semibold block">Moderate</span>
-                    <span className="font-mono tabular-nums text-amber-900">
-                      {beforeCounts.mod} → <strong>{afterCounts.mod}</strong>
-                    </span>
-                  </div>
-                  <div className="p-1.5 rounded bg-emerald-50/60 border border-emerald-200">
-                    <span className="text-emerald-800 font-semibold block">Low</span>
-                    <span className="font-mono tabular-nums text-emerald-900">
-                      {beforeCounts.low} → <strong>{afterCounts.low}</strong>
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Total Weights & Validation */}
-              <div className="flex items-center justify-between pt-2 border-t border-[#E5E7EB]">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`font-mono text-xs font-semibold ${
-                      tempTotalWeight === 100 ? 'text-emerald-700' : 'text-rose-700'
-                    }`}
-                  >
-                    Total: {tempTotalWeight}%
-                  </span>
-                  {tempTotalWeight !== 100 && (
-                    <span className="text-[11px] text-rose-700">Must equal 100%</span>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setWeightsModalOpen(false)}
-                    className="px-3 py-1.5 text-xs text-[#4B5563] hover:bg-[#F3F4F6] rounded-md cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={tempTotalWeight !== 100}
-                    className="px-3.5 py-1.5 text-xs font-medium text-white bg-[#2457D6] hover:bg-blue-700 rounded-md shadow-xs disabled:opacity-40 cursor-pointer"
-                  >
-                    Apply Weights
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -16,8 +16,6 @@ import { ExceptionsView } from './components/views/ExceptionsView';
 import { RiskIntelligenceView } from './components/views/RiskIntelligenceView';
 import { AuditCasesView } from './components/views/AuditCasesView';
 import { ReportsView } from './components/views/ReportsView';
-import { AuditTrailView } from './components/views/AuditTrailView';
-import { SettingsView } from './components/views/SettingsView';
 
 function MainAppShell() {
   const { section: currentSection, params, navigate } = useHashRouter();
@@ -125,10 +123,6 @@ function MainAppShell() {
             {currentSection === 'cases' && <AuditCasesView />}
 
             {currentSection === 'reports' && <ReportsView />}
-
-            {currentSection === 'audit-trail' && <AuditTrailView />}
-
-            {currentSection === 'settings' && <SettingsView />}
           </div>
         </main>
       </div>

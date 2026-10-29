@@ -37,7 +37,13 @@ export interface Institution {
   code: string;
   name: string;
   state: string;
-  type: 'Government' | 'Private Unaided' | 'University Constituent' | 'Deemed-to-be University';
+  type:
+    | 'Government'
+    | 'Private Unaided'
+    | 'University Constituent'
+    | 'Deemed-to-be University'
+    | 'Government-aided'
+    | 'University Department';
   approvedProgrammesCount: number;
   academicYear: AcademicYear;
   approvedIntake: number;
@@ -201,6 +207,7 @@ export interface AuditTrailEvent {
   timestamp: string;
   actorRole: DemoRole | 'Automated Rule Engine';
   actorName: string;
+  action?: string;
   actionCategory:
     | 'Submission'
     | 'Validation'

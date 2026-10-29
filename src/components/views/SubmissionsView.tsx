@@ -43,12 +43,17 @@ export const SubmissionsView: React.FC = () => {
   const handleDownloadSampleCsv = () => {
     const csvContent =
       `StudentRef,SyntheticApaarId,StudentName,Gender,Category,ProgrammeCode,AdmissionDate,EnrolmentStatus\n` +
-      `STU-2024-9101,DEMO-APAAR-4102-8812,A*** S***,M,General,CSE-UG,2024-08-16,Active\n` +
-      `STU-2024-9102,DEMO-APAAR-4102-8813,P*** M***,F,OBC,CSE-UG,2024-08-17,Active\n` +
-      `STU-2024-9103,DEMO-APAAR-8832-4411,K*** R***,M,General,ECE-UG,2024-08-19,Active\n` +
-      `STU-2024-9104,DEMO-APAAR-4102-8815,S*** D***,F,EWS,MECH-UG,2024-08-20,Active\n` +
-      `STU-2024-9105,DEMO-APAAR-4102-8816,V*** N***,M,SC,MBA-PG,2024-08-21,Active\n` +
-      `STU-2024-9106,,R*** T***,F,General,CSE-UG,2024-08-22,Active\n`;
+      `STU-2024-801,4821-9920-2101,Aarav S****,Male,General,CSE-UG,2024-07-16,Active\n` +
+      `STU-2024-802,4821-9920-2102,Diya M****,Female,OBC,CSE-UG,2024-07-18,Active\n` +
+      `STU-2024-803,4821-9920-2103,Rohan K****,Male,SC,ECE-UG,2024-07-20,Active\n` +
+      `STU-2024-804,4821-9920-2104,Isha V****,Female,General,ECE-UG,2024-07-22,Active\n` +
+      `STU-2024-805,4821-9920-2105,Aditya P****,Male,EWS,AI-PG,2024-07-25,Active\n` +
+      `STU-2024-806,4821-9920-2106,Kavya N****,Female,General,AI-PG,2024-07-28,Active\n` +
+      `STU-2024-807,4821-9920-2107,Devansh R****,Male,OBC,CSE-UG,2024-08-01,Active\n` +
+      `STU-2024-808,4821-9920-2108,Sneha B****,Female,General,ECE-UG,2024-08-03,Active\n` +
+      `STU-2024-809,9823-4102-8819,Priya V****,Female,General,CSE-UG,2024-08-05,Active\n` +
+      `STU-2024-810,4821-9920-2110,Varun D****,Male,General,AERO-UG,2024-08-06,Active\n` +
+      `STU-2024-811,,Harsh T****,Male,General,AI-PG,2024-08-08,Active\n`;
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -58,7 +63,7 @@ export const SubmissionsView: React.FC = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('Downloaded sample CSV template', 'info');
+    showToast('Downloaded sample CSV template (11 rows with intentional checks)', 'info');
   };
 
   const parseCsvText = (text: string) => {
