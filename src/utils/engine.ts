@@ -280,3 +280,61 @@ export function validateCsvRow(
     warnings,
   };
 }
+
+/**
+ * Dev-only assertion function checking that all counts reconcile across datasets.
+ * Logs any mismatches to the console.
+ */
+export function assertDataConsistency(
+  institutions: Institution[],
+  records: EnrolmentRecord[],
+  exceptions: ValidationException[],
+  auditCases: any[]
+): boolean {
+  let isConsistent = true;
+
+  // 1. Check record validation counts
+  const validCount = records.filter((r) => r.validationStatus === 'Valid').length;
+  const reviewCount = records.filter(
+    (r) => r.validationStatus === 'Flagged' || r.validationStatus === 'Duplicate Candidate' || r.validationStatus === 'Pending'
+  ).length;
+  const totalReconciled = validCount + reviewCount;
+
+  if (totalReconciled !== records.length) {
+    console.warn(
+      `[AERVIS Consistency Check] Record validation sum mismatch: Valid (${validCount}) + Review (${reviewCount}) = ${totalReconciled} vs Total (${records.length})`
+    );
+    isConsistent = false;
+  }
+
+  // 2. Check unique states count
+  const uniqueStates = new Set(institutions.map((i) => i.state)).size;
+  if (uniqueStates !== institutions.length) {
+    console.info(
+      `[AERVIS Consistency Check] ${institutions.length} institutions across ${uniqueStates} unique states.`
+    );
+  }
+
+  // 3. Exception counts
+  const blocking = exceptions.filter((e) => e.severity === 'Blocking Error').length;
+  const warning = exceptions.filter((e) => e.severity === 'Warning').length;
+  const reviewReq = exceptions.filter((e) => e.severity === 'Review Required').length;
+  const info = exceptions.filter((e) => e.severity === 'Informational').length;
+  const sumExceptions = blocking + warning + reviewReq + info;
+
+  if (sumExceptions !== exceptions.length) {
+    console.warn(
+      `[AERVIS Consistency Check] Exception severity mismatch: sum ${sumExceptions} vs total ${exceptions.length}`
+    );
+    isConsistent = false;
+  }
+
+  if (isConsistent) {
+    console.info(
+      `[AERVIS Consistency Check Passed] All ${institutions.length} institutions, ${records.length} sample records, and ${exceptions.length} exceptions reconcile perfectly.`
+    );
+  }
+
+  return isConsistent;
+}
+

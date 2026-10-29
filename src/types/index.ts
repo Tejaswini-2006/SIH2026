@@ -1,4 +1,4 @@
-export type DemoRole = 'AICTE Analyst' | 'Institution Administrator' | 'Regulatory Auditor';
+export type DemoRole = 'AICTE Analyst' | 'Institution Administrator' | 'Auditor';
 
 export type AcademicYear = '2024-25' | '2023-24' | '2025-26';
 

@@ -1,16 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import {
   History,
-  Search,
-  Filter,
   ShieldCheck,
-  CheckCircle,
-  AlertCircle,
-  FileText,
-  User,
+  Search,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { AuditTrailEvent } from '../../types';
+import { PageHeader } from '../ui/PageHeader';
+import { Card } from '../ui/Card';
+import { DataTable, Column } from '../ui/DataTable';
+import { FilterBar } from '../ui/FilterBar';
+import { StatusChip } from '../ui/StatusChip';
 
 export const AuditTrailView: React.FC = () => {
   const { auditTrail } = useApp();
@@ -18,6 +18,17 @@ export const AuditTrailView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedRole, setSelectedRole] = useState<string>('all');
+
+  const categories = [
+    'Submission',
+    'Validation',
+    'Exception',
+    'Correction',
+    'Case Management',
+    'Risk Override',
+    'Report Export',
+    'Settings',
+  ];
 
   const filteredLogs = useMemo(() => {
     return auditTrail.filter((event) => {
@@ -36,154 +47,178 @@ export const AuditTrailView: React.FC = () => {
     });
   }, [auditTrail, searchQuery, selectedCategory, selectedRole]);
 
-  const categories = [
-    'Submission',
-    'Validation',
-    'Exception',
-    'Correction',
-    'Case Management',
-    'Risk Override',
-    'Report Export',
-    'Settings',
+  const filterDropdowns = [
+    {
+      id: 'category',
+      label: 'Action Category',
+      value: selectedCategory,
+      options: [
+        { label: 'All Action Categories', value: 'all' },
+        ...categories.map((c) => ({ label: c, value: c })),
+      ],
+      onChange: (val: string) => setSelectedCategory(val),
+    },
+    {
+      id: 'role',
+      label: 'Actor Role',
+      value: selectedRole,
+      options: [
+        { label: 'All Roles', value: 'all' },
+        { label: 'AICTE Analyst', value: 'AICTE Analyst' },
+        { label: 'Auditor', value: 'Auditor' },
+        { label: 'Institution Administrator', value: 'Institution Administrator' },
+        { label: 'Automated Rule Engine', value: 'Automated Rule Engine' },
+      ],
+      onChange: (val: string) => setSelectedRole(val),
+    },
+  ];
+
+  const activeChips = [];
+  if (selectedCategory !== 'all') {
+    activeChips.push({
+      label: `Category: ${selectedCategory}`,
+      onRemove: () => setSelectedCategory('all'),
+    });
+  }
+  if (selectedRole !== 'all') {
+    activeChips.push({
+      label: `Role: ${selectedRole}`,
+      onRemove: () => setSelectedRole('all'),
+    });
+  }
+
+  const columns: Column<AuditTrailEvent>[] = [
+    {
+      id: 'timestamp',
+      header: 'Timestamp',
+      accessor: 'timestamp',
+      sortable: true,
+      className: 'w-40',
+      render: (ev) => (
+        <span className="font-mono text-xs tabular-nums whitespace-nowrap text-[#4B5563]">
+          {ev.timestamp}
+        </span>
+      ),
+    },
+    {
+      id: 'actor',
+      header: 'Actor & Persona',
+      sortable: true,
+      className: 'w-52',
+      render: (ev) => (
+        <div className="py-0.5">
+          <div className="text-xs font-medium text-[#111827] truncate max-w-[190px]" title={ev.actorName}>
+            {ev.actorName}
+          </div>
+          <div className="text-[11px] text-[#6B7280] truncate mt-0.5" title={ev.actorRole}>
+            {ev.actorRole}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'actionCategory',
+      header: 'Category',
+      accessor: 'actionCategory',
+      sortable: true,
+      className: 'w-36',
+      render: (ev) => <StatusChip label={ev.actionCategory} variant="neutral" />,
+    },
+    {
+      id: 'affectedRef',
+      header: 'Affected Ref',
+      accessor: 'affectedRef',
+      sortable: true,
+      className: 'w-40',
+      render: (ev) => (
+        <span className="font-mono text-xs whitespace-nowrap text-[#111827] font-semibold">
+          {ev.affectedRef}
+        </span>
+      ),
+    },
+    {
+      id: 'details',
+      header: 'Event Detail & Context',
+      className: 'min-w-[280px]',
+      render: (ev) => (
+        <span className="text-xs text-[#374151] line-clamp-2 leading-relaxed" title={ev.details}>
+          {ev.details}
+        </span>
+      ),
+    },
+    {
+      id: 'outcome',
+      header: 'Outcome',
+      accessor: 'outcome',
+      sortable: true,
+      className: 'w-28 text-right',
+      render: (ev) => {
+        const variant =
+          ev.outcome === 'Success'
+            ? 'success'
+            : ev.outcome === 'Flagged'
+            ? 'danger'
+            : ev.outcome === 'Modified'
+            ? 'warning'
+            : 'neutral';
+        return <StatusChip label={ev.outcome} variant={variant} />;
+      },
+    },
   ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Title & Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">System Audit Log & Traceability Trail</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Immutable chronological event log capturing user submissions, rule evaluations, case milestones, and score overrides.
-          </p>
-        </div>
-
-        <span className="self-start md:self-auto text-xs font-mono text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs">
-          {auditTrail.length} Logged Trail Entries
-        </span>
-      </div>
+    <div className="max-w-[1360px] mx-auto space-y-4">
+      {/* Page Header */}
+      <PageHeader
+        title="Audit Trail"
+        subtitle="Immutable chronological event log capturing user submissions, rule evaluations, case milestones, and score overrides."
+        actions={
+          <span className="text-xs font-mono text-[#4B5563] bg-white border border-[#E5E7EB] px-3 py-1.5 rounded-md">
+            {auditTrail.length} Entries Logged
+          </span>
+        }
+      />
 
       {/* Audit Policy Notice */}
-      <div className="p-3 bg-slate-100 border border-slate-200/90 rounded-lg text-xs text-slate-600 flex items-center justify-between">
+      <div className="p-3 bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-xs text-[#4B5563] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-slate-500 shrink-0" />
+          <ShieldCheck className="w-4 h-4 text-[#2457D6] shrink-0" />
           <span>
-            <strong>Local Audit Integrity:</strong> All user mutations and rule evaluations are recorded locally in the browser runtime. In production, these records would stream to a certified WORM audit vault.
+            <strong>Local Audit Integrity:</strong> All user mutations and rule evaluations are recorded locally in the browser runtime. In a production environment, these events stream to a certified WORM (Write Once, Read Many) compliance vault.
           </span>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Search reference, actor, or detail text..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-900 placeholder:text-slate-400"
-            />
-          </div>
-
-          <div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              aria-label="Filter by action category"
-              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-700 cursor-pointer"
-            >
-              <option value="all">All Action Categories</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <select
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
-              aria-label="Filter by actor role"
-              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-700 cursor-pointer"
-            >
-              <option value="all">All Roles</option>
-              <option value="AICTE Analyst">AICTE Analyst</option>
-              <option value="Regulatory Auditor">Regulatory Auditor</option>
-              <option value="Institution Administrator">Institution Administrator</option>
-              <option value="Automated Rule Engine">Automated Rule Engine</option>
-            </select>
-          </div>
-        </div>
-      </div>
+      <FilterBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search reference, actor, or detail text..."
+        dropdowns={filterDropdowns}
+        activeChips={activeChips}
+        onClearAll={() => {
+          setSearchQuery('');
+          setSelectedCategory('all');
+          setSelectedRole('all');
+        }}
+        totalCount={auditTrail.length}
+        filteredCount={filteredLogs.length}
+      />
 
       {/* Main Table */}
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold select-none">
-              <tr>
-                <th className="px-4 py-3">Timestamp</th>
-                <th className="px-4 py-3">Actor & Persona</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Affected Ref</th>
-                <th className="px-4 py-3">Event Detail & Context</th>
-                <th className="px-4 py-3 text-right">Outcome</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filteredLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400">
-                    No audit trail logs match your filter parameters.
-                  </td>
-                </tr>
-              ) : (
-                filteredLogs.map((ev) => (
-                  <tr key={ev.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-3 font-mono text-[11px] text-slate-500 whitespace-nowrap">
-                      {ev.timestamp}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="font-medium text-slate-900">{ev.actorName}</div>
-                      <div className="text-[10px] text-slate-400">{ev.actorRole}</div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                        {ev.actionCategory}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 font-mono font-semibold text-slate-800 whitespace-nowrap">
-                      {ev.affectedRef}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 max-w-md">
-                      {ev.details}
-                    </td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <span
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
-                          ev.outcome === 'Success'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : ev.outcome === 'Flagged'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : ev.outcome === 'Modified'
-                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                            : 'bg-slate-100 text-slate-700 border border-slate-200'
-                        }`}
-                      >
-                        {ev.outcome}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Card noPadding>
+        <DataTable
+          data={filteredLogs}
+          columns={columns}
+          keyExtractor={(ev) => ev.id}
+          defaultSort={{ columnId: 'timestamp', direction: 'desc' }}
+          defaultPageSize={15}
+          pageSizeOptions={[15, 30, 50]}
+          emptyStateTitle="No audit trail events found"
+          emptyStateDescription="Try adjusting search or category filters to locate specific system records."
+          stickyHeader
+        />
+      </Card>
     </div>
   );
 };

@@ -20,7 +20,7 @@ import {
   INITIAL_SUBMISSIONS,
   INITIAL_AUDIT_TRAIL,
 } from '../data/seedData';
-import { calculateInstitutionRisk, DEFAULT_RISK_WEIGHTS } from '../utils/engine';
+import { calculateInstitutionRisk, DEFAULT_RISK_WEIGHTS, assertDataConsistency } from '../utils/engine';
 
 interface RiskOverrideData {
   score: number;
@@ -188,6 +188,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [institutions, records, exceptions, auditCases, submissions, auditTrail, settings, riskOverrides]);
 
+  // Assertion check on load
+  useEffect(() => {
+    assertDataConsistency(institutions, records, exceptions, auditCases);
+  }, []);
+
   const logAudit = (
     category: AuditTrailEvent['actionCategory'],
     ref: string,
@@ -201,7 +206,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       actorName:
         settings.currentRole === 'AICTE Analyst'
           ? 'Dr. Anita Joshi'
-          : settings.currentRole === 'Regulatory Auditor'
+          : settings.currentRole === 'Auditor'
           ? 'V. Sundaram'
           : 'Institution Registrar',
       actionCategory: category,
@@ -419,7 +424,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       assignedReviewer:
         settings.currentRole === 'AICTE Analyst'
           ? 'Dr. Anita Joshi (AICTE Analyst)'
-          : 'V. Sundaram (Regulatory Auditor)',
+          : 'V. Sundaram (Auditor)',
       dateOpened: new Date().toISOString().slice(0, 10),
       institutionResponseStatus: 'Pending',
       decisionStatus: 'Open',

@@ -1,17 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Search,
-  Filter,
-  ArrowUpDown,
-  Building2,
-  ExternalLink,
+  ChevronRight,
   PlusCircle,
-  AlertCircle,
-  CheckCircle2,
+  Building2,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
-import { InstitutionDetailDrawer } from './InstitutionDetailDrawer';
 import { Institution } from '../../types';
+import { PageHeader } from '../ui/PageHeader';
+import { FilterBar, ActiveFilterChip } from '../ui/FilterBar';
+import { DataTable, ColumnDef, TableDensity } from '../ui/DataTable';
+import { StatusChip } from '../ui/StatusChip';
+import { SeverityChip } from '../ui/SeverityChip';
+import { Tooltip } from '../ui/Tooltip';
+import { InstitutionDetailDrawer } from './InstitutionDetailDrawer';
+import { useToast } from '../ui/ToastContext';
 
 interface InstitutionsViewProps {
   initialSelectedId?: string | null;
@@ -24,17 +27,22 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
   onNavigateToRecords,
   onNavigateToCases,
 }) => {
-  const { institutions, createAuditCase, getInstitutionRisk } = useApp();
+  const { institutions, getInstitutionRisk, createAuditCase, settings } = useApp();
+  const { showToast } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedState, setSelectedState] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
-  const [sortField, setSortField] = useState<'name' | 'code' | 'intake' | 'enrolment' | 'priority'>('priority');
+  const [sortField, setSortField] = useState<string>('priority');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [density, setDensity] = useState<TableDensity>('comfortable');
 
-  // Drawer & Case Creation state
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
+
+  // Selected institution for drawer
   const [selectedInstitution, setSelectedInstitution] = useState<Institution | null>(() => {
     if (initialSelectedId) {
       return institutions.find((i) => i.id === initialSelectedId) || null;
@@ -42,12 +50,12 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
     return null;
   });
 
+  // New Case Modal
   const [newCaseModalOpen, setNewCaseModalOpen] = useState(false);
   const [caseTargetInstId, setCaseTargetInstId] = useState<string>('');
   const [casePriority, setCasePriority] = useState<'Urgent' | 'High' | 'Normal' | 'Low'>('High');
   const [caseSummary, setCaseSummary] = useState('');
 
-  // Extract unique states & types
   const states = useMemo(() => Array.from(new Set(institutions.map((i) => i.state))).sort(), [institutions]);
   const types = useMemo(() => Array.from(new Set(institutions.map((i) => i.type))).sort(), [institutions]);
 
@@ -55,36 +63,76 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
     return institutions.filter((inst) => {
       const risk = getInstitutionRisk(inst.id);
       const matchesSearch =
+        !searchQuery ||
         inst.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inst.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
         inst.state.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesState = selectedState === 'all' || inst.state === selectedState;
       const matchesType = selectedType === 'all' || inst.type === selectedType;
-      const matchesStatus = selectedStatus === 'all' || inst.submissionStatus === selectedStatus;
       const matchesPriority =
         selectedPriority === 'all' ||
         (selectedPriority === 'High' && risk.tier === 'High') ||
         (selectedPriority === 'Moderate' && risk.tier === 'Moderate') ||
         (selectedPriority === 'Low' && risk.tier === 'Low');
 
-      return matchesSearch && matchesState && matchesType && matchesStatus && matchesPriority;
+      return matchesSearch && matchesState && matchesType && matchesPriority;
     }).sort((a, b) => {
-      let comparison = 0;
+      let comp = 0;
       const riskA = getInstitutionRisk(a.id);
       const riskB = getInstitutionRisk(b.id);
 
-      if (sortField === 'name') comparison = a.name.localeCompare(b.name);
-      else if (sortField === 'code') comparison = a.code.localeCompare(b.code);
-      else if (sortField === 'intake') comparison = a.approvedIntake - b.approvedIntake;
-      else if (sortField === 'enrolment') comparison = a.reportedEnrolment - b.reportedEnrolment;
-      else if (sortField === 'priority') comparison = riskA.effectiveScore - riskB.effectiveScore;
+      if (sortField === 'name') comp = a.name.localeCompare(b.name);
+      else if (sortField === 'code') comp = a.code.localeCompare(b.code);
+      else if (sortField === 'intake') comp = a.approvedIntake - b.approvedIntake;
+      else if (sortField === 'enrolment') comp = a.reportedEnrolment - b.reportedEnrolment;
+      else if (sortField === 'priority') comp = riskA.effectiveScore - riskB.effectiveScore;
 
-      return sortDirection === 'asc' ? comparison : -comparison;
+      return sortDirection === 'asc' ? comp : -comp;
     });
-  }, [institutions, searchQuery, selectedState, selectedType, selectedStatus, selectedPriority, sortField, sortDirection]);
+  }, [institutions, searchQuery, selectedState, selectedType, selectedPriority, sortField, sortDirection, getInstitutionRisk]);
 
-  const handleSort = (field: typeof sortField) => {
+  const paginatedInstitutions = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredInstitutions.slice(start, start + pageSize);
+  }, [filteredInstitutions, currentPage, pageSize]);
+
+  // Active filter chips
+  const activeChips: ActiveFilterChip[] = [];
+  if (selectedState !== 'all') {
+    activeChips.push({
+      id: 'state',
+      label: 'State',
+      value: selectedState,
+      onRemove: () => setSelectedState('all'),
+    });
+  }
+  if (selectedType !== 'all') {
+    activeChips.push({
+      id: 'type',
+      label: 'Type',
+      value: selectedType,
+      onRemove: () => setSelectedType('all'),
+    });
+  }
+  if (selectedPriority !== 'all') {
+    activeChips.push({
+      id: 'priority',
+      label: 'Priority',
+      value: selectedPriority,
+      onRemove: () => setSelectedPriority('all'),
+    });
+  }
+
+  const handleClearAll = () => {
+    setSelectedState('all');
+    setSelectedType('all');
+    setSelectedPriority('all');
+    setSearchQuery('');
+    setCurrentPage(1);
+  };
+
+  const handleSort = (field: string) => {
     if (sortField === field) {
       setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
@@ -93,14 +141,10 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
     }
   };
 
-  const handleOpenCaseModal = (institutionId: string) => {
-    setCaseTargetInstId(institutionId);
-    const inst = institutions.find((i) => i.id === institutionId);
-    setCaseSummary(
-      inst
-        ? `Inquiry into reported enrolment discrepancy and admission compliance for ${inst.name}.`
-        : ''
-    );
+  const handleOpenCaseModal = (instId: string) => {
+    setCaseTargetInstId(instId);
+    const target = institutions.find((i) => i.id === instId);
+    setCaseSummary(target ? `Compliance review inquiry for ${target.name}.` : '');
     setNewCaseModalOpen(true);
   };
 
@@ -109,256 +153,280 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
     if (!caseTargetInstId || !caseSummary.trim()) return;
 
     createAuditCase(caseTargetInstId, casePriority, caseSummary.trim(), [
-      'Initiated from Institutions Directory',
+      'Inquiry opened from Institutions Directory',
     ]);
+    showToast({ message: 'Audit case created successfully', type: 'success' });
     setNewCaseModalOpen(false);
     onNavigateToCases();
   };
 
-  return (
-    <div className="space-y-5 max-w-7xl mx-auto">
-      {/* Title & Filter Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Approved Institutions Directory</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Directory of AICTE-sanctioned technical institutes with real-time intake discrepancy & review priority indicators.
-          </p>
+  // Columns definition
+  const columns: ColumnDef<Institution>[] = [
+    {
+      key: 'code',
+      header: 'Code',
+      width: '120px',
+      sortable: true,
+      render: (inst) => (
+        <span className="font-mono text-xs text-[#4B5563] whitespace-nowrap">
+          {inst.code}
+        </span>
+      ),
+    },
+    {
+      key: 'name',
+      header: 'Institution Name',
+      sortable: true,
+      render: (inst) => {
+        const excess = inst.reportedEnrolment - inst.approvedIntake;
+        return (
+          <div className="min-w-0 pr-2">
+            <Tooltip content={inst.name}>
+              <span className="font-medium text-xs text-[#111827] truncate block max-w-sm">
+                {inst.name}
+              </span>
+            </Tooltip>
+            <span className="text-[11px] text-[#6B7280]">
+              {inst.approvedProgrammesCount} Programmes · AY {inst.academicYear}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'state_type',
+      header: 'State & Type',
+      width: '180px',
+      render: (inst) => (
+        <div className="whitespace-nowrap">
+          <div className="font-medium text-xs text-[#111827]">{inst.state}</div>
+          <div className="text-[11px] text-[#6B7280]">
+            {inst.type === 'Private Unaided' ? (
+              <Tooltip content="Private institution receiving no state grant-in-aid">
+                <span className="cursor-help underline decoration-dotted">{inst.type}</span>
+              </Tooltip>
+            ) : (
+              inst.type
+            )}
+          </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-mono text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs">
-            Showing <strong className="text-slate-900">{filteredInstitutions.length}</strong> of {institutions.length} institutions
+      ),
+    },
+    {
+      key: 'intake',
+      header: 'Quota',
+      width: '80px',
+      align: 'right',
+      sortable: true,
+      render: (inst) => (
+        <span className="tabular-nums font-mono text-xs text-[#4B5563]">
+          {inst.approvedIntake}
+        </span>
+      ),
+    },
+    {
+      key: 'enrolment',
+      header: 'Reported',
+      width: '90px',
+      align: 'right',
+      sortable: true,
+      render: (inst) => {
+        const excess = inst.reportedEnrolment - inst.approvedIntake;
+        const isOver = excess > 0;
+        return (
+          <span className={`tabular-nums font-mono text-xs font-semibold ${isOver ? 'text-rose-700' : 'text-[#111827]'}`}>
+            {inst.reportedEnrolment}
           </span>
-        </div>
-      </div>
+        );
+      },
+    },
+    {
+      key: 'utilization',
+      header: 'Intake Utilization',
+      width: '160px',
+      render: (inst) => {
+        const excess = inst.reportedEnrolment - inst.approvedIntake;
+        const pct = (inst.reportedEnrolment / inst.approvedIntake) * 100;
+        const isOver = excess > 0;
 
-      {/* Filter Controls Bar */}
-      <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          {/* Search Input */}
-          <div className="md:col-span-2 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Search by institution name, code, or state..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-900 placeholder:text-slate-400"
-            />
+        // Semantic utilization color:
+        // neutral/blue below 100%, amber when exactly 100% or within tolerance, red strictly over quota
+        const barColor = isOver
+          ? 'bg-rose-600'
+          : inst.reportedEnrolment === inst.approvedIntake
+          ? 'bg-amber-500'
+          : 'bg-[#2457D6]';
+
+        return (
+          <div className="w-full max-w-[140px] space-y-1">
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="tabular-nums font-mono text-[#6B7280]">{pct.toFixed(1)}%</span>
+              {isOver ? (
+                <span className="text-rose-700 font-semibold tabular-nums text-[11px]">+{excess} over</span>
+              ) : (
+                <span className="text-[#6B7280] text-[11px]">Within quota</span>
+              )}
+            </div>
+            <div className="h-1.5 w-full bg-[#F3F4F6] rounded overflow-hidden">
+              <div
+                className={`h-full rounded ${barColor}`}
+                style={{ width: `${Math.min(100, pct)}%` }}
+              />
+            </div>
           </div>
+        );
+      },
+    },
+    {
+      key: 'priority',
+      header: 'Review Priority',
+      width: '130px',
+      sortable: true,
+      render: (inst) => {
+        const risk = getInstitutionRisk(inst.id);
+        return (
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-xs font-semibold tabular-nums text-[#111827]">
+              {risk.effectiveScore}
+            </span>
+            <SeverityChip severity={risk.tier} size="sm" />
+          </div>
+        );
+      },
+    },
+    {
+      key: 'status',
+      header: 'Submission Status',
+      width: '140px',
+      render: (inst) => {
+        const excess = inst.reportedEnrolment - inst.approvedIntake;
+        // Show over intake label strictly when over intake
+        if (excess > 0) {
+          return <StatusChip label="Over Intake" variant="danger" size="sm" />;
+        }
+        if (inst.submissionStatus === 'Late Submission') {
+          return <StatusChip label="Late Submission" variant="warning" size="sm" />;
+        }
+        return <StatusChip label="Submitted" variant="success" size="sm" />;
+      },
+    },
+    {
+      key: 'action',
+      header: '',
+      width: '40px',
+      align: 'right',
+      render: () => (
+        <ChevronRight className="w-4 h-4 text-[#9CA3AF] shrink-0" />
+      ),
+    },
+  ];
 
-          {/* State Filter */}
-          <div>
-            <select
-              value={selectedState}
-              onChange={(e) => setSelectedState(e.target.value)}
-              aria-label="Filter by state"
-              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-700 cursor-pointer"
+  return (
+    <div className="max-w-[1360px] mx-auto space-y-5">
+      {/* Page Header */}
+      <PageHeader
+        title="Approved Institutions"
+        description="Comprehensive directory of AICTE-approved institutions with capacity utilization and explainable review priority scores."
+      />
+
+      {/* Filter Bar */}
+      <FilterBar
+        searchValue={searchQuery}
+        onSearchChange={(v) => {
+          setSearchQuery(v);
+          setCurrentPage(1);
+        }}
+        searchPlaceholder="Search institution name, code, or state..."
+        activeFilters={activeChips}
+        onClearAll={handleClearAll}
+        showingCount={filteredInstitutions.length}
+        totalCount={institutions.length}
+        densityToggle={
+          <div className="flex items-center gap-1 border-l border-[#E5E7EB] pl-3 ml-2">
+            <span className="text-[11px] text-[#6B7280]">Density:</span>
+            <button
+              type="button"
+              onClick={() => setDensity(density === 'comfortable' ? 'compact' : 'comfortable')}
+              className="text-xs px-2 py-0.5 rounded border border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F9FAFB] font-medium"
             >
-              <option value="all">All States ({states.length})</option>
-              {states.map((st) => (
-                <option key={st} value={st}>
-                  {st}
-                </option>
-              ))}
-            </select>
+              {density === 'comfortable' ? 'Comfortable' : 'Compact'}
+            </button>
           </div>
+        }
+      >
+        {/* State Select */}
+        <select
+          value={selectedState}
+          onChange={(e) => {
+            setSelectedState(e.target.value);
+            setCurrentPage(1);
+          }}
+          aria-label="Filter by state"
+          className="px-2.5 py-1.5 text-xs bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-[#374151] focus:outline-none focus:ring-1 focus:ring-[#2457D6] cursor-pointer"
+        >
+          <option value="all">All States ({states.length})</option>
+          {states.map((st) => (
+            <option key={st} value={st}>
+              {st}
+            </option>
+          ))}
+        </select>
 
-          {/* Type Filter */}
-          <div>
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              aria-label="Filter by institution type"
-              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-700 cursor-pointer"
-            >
-              <option value="all">All Institution Types</option>
-              {types.map((tp) => (
-                <option key={tp} value={tp}>
-                  {tp}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* Type Select */}
+        <select
+          value={selectedType}
+          onChange={(e) => {
+            setSelectedType(e.target.value);
+            setCurrentPage(1);
+          }}
+          aria-label="Filter by institution type"
+          className="px-2.5 py-1.5 text-xs bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-[#374151] focus:outline-none focus:ring-1 focus:ring-[#2457D6] cursor-pointer"
+        >
+          <option value="all">All Institution Types</option>
+          {types.map((tp) => (
+            <option key={tp} value={tp}>
+              {tp}
+            </option>
+          ))}
+        </select>
 
-          {/* Priority Filter */}
-          <div>
-            <select
-              value={selectedPriority}
-              onChange={(e) => setSelectedPriority(e.target.value)}
-              aria-label="Filter by review priority"
-              className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-700 cursor-pointer"
-            >
-              <option value="all">All Priority Levels</option>
-              <option value="High">High Priority (70+)</option>
-              <option value="Moderate">Moderate Priority (40-69)</option>
-              <option value="Low">Low Priority (&lt;40)</option>
-            </select>
-          </div>
-        </div>
-      </div>
+        {/* Priority Select */}
+        <select
+          value={selectedPriority}
+          onChange={(e) => {
+            setSelectedPriority(e.target.value);
+            setCurrentPage(1);
+          }}
+          aria-label="Filter by review priority"
+          className="px-2.5 py-1.5 text-xs bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-[#374151] focus:outline-none focus:ring-1 focus:ring-[#2457D6] cursor-pointer"
+        >
+          <option value="all">All Priority Tiers</option>
+          <option value="High">High (&ge;70)</option>
+          <option value="Moderate">Moderate (40–69)</option>
+          <option value="Low">Low (&lt;40)</option>
+        </select>
+      </FilterBar>
 
       {/* Main Table */}
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-semibold select-none">
-              <tr>
-                <th className="px-4 py-3 cursor-pointer hover:text-slate-900" onClick={() => handleSort('code')}>
-                  <div className="flex items-center gap-1.5">
-                    <span>AICTE Code</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th className="px-4 py-3 cursor-pointer hover:text-slate-900" onClick={() => handleSort('name')}>
-                  <div className="flex items-center gap-1.5">
-                    <span>Institution Name</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th className="px-4 py-3">State & Type</th>
-                <th className="px-4 py-3 text-right cursor-pointer hover:text-slate-900" onClick={() => handleSort('intake')}>
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Approved Intake</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th className="px-4 py-3 text-right cursor-pointer hover:text-slate-900" onClick={() => handleSort('enrolment')}>
-                  <div className="flex items-center justify-end gap-1.5">
-                    <span>Reported Enrolment</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th className="px-4 py-3">Capacity Utilization</th>
-                <th className="px-4 py-3 cursor-pointer hover:text-slate-900" onClick={() => handleSort('priority')}>
-                  <div className="flex items-center gap-1.5">
-                    <span>Review Priority</span>
-                    <ArrowUpDown className="w-3 h-3" />
-                  </div>
-                </th>
-                <th className="px-4 py-3">Submission Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700">
-              {filteredInstitutions.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
-                    No institutions matched your filter criteria.
-                  </td>
-                </tr>
-              ) : (
-                filteredInstitutions.map((inst) => {
-                  const risk = getInstitutionRisk(inst.id);
-                  const excess = inst.reportedEnrolment - inst.approvedIntake;
-                  const utilizationPct = inst.approvedIntake > 0 ? (inst.reportedEnrolment / inst.approvedIntake) * 100 : 0;
-                  const isOverrun = excess > 0;
-
-                  return (
-                    <tr
-                      key={inst.id}
-                      className="hover:bg-slate-50/70 transition-colors cursor-pointer group"
-                      onClick={() => setSelectedInstitution(inst)}
-                    >
-                      <td className="px-4 py-3 font-mono font-medium text-slate-600">
-                        {inst.code}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-slate-900">
-                        <div className="truncate max-w-xs">{inst.name}</div>
-                        <div className="text-[11px] text-slate-400 font-normal">
-                          {inst.approvedProgrammesCount} Approved Programmes · AY {inst.academicYear}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        <div>{inst.state}</div>
-                        <div className="text-[11px] text-slate-400">{inst.type}</div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono tabular-nums text-slate-700 font-medium">
-                        {inst.approvedIntake}
-                      </td>
-                      <td className="px-4 py-3 text-right font-mono tabular-nums font-semibold">
-                        <span className={isOverrun ? 'text-rose-600' : 'text-slate-900'}>
-                          {inst.reportedEnrolment}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="w-32">
-                          <div className="flex items-center justify-between text-[10px] mb-1 font-mono">
-                            <span className={isOverrun ? 'text-rose-600 font-semibold' : 'text-slate-500'}>
-                              {utilizationPct.toFixed(1)}%
-                            </span>
-                            {isOverrun ? (
-                              <span className="text-rose-600 font-semibold">+{excess} seats</span>
-                            ) : (
-                              <span className="text-slate-400">Quota ok</span>
-                            )}
-                          </div>
-                          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${
-                                isOverrun ? 'bg-rose-500' : 'bg-blue-600'
-                              }`}
-                              style={{ width: `${Math.min(100, utilizationPct)}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`font-mono font-bold text-xs tabular-nums ${
-                              risk.tier === 'High'
-                                ? 'text-rose-700'
-                                : risk.tier === 'Moderate'
-                                ? 'text-amber-700'
-                                : 'text-emerald-700'
-                            }`}
-                          >
-                            {risk.effectiveScore}/100
-                          </span>
-                          <span
-                            className={`text-[10px] font-semibold px-1.5 py-0.2 rounded ${
-                              risk.tier === 'High'
-                                ? 'bg-rose-100 text-rose-800'
-                                : risk.tier === 'Moderate'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                          >
-                            {risk.tier}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`text-[11px] px-2 py-0.5 rounded font-medium inline-block ${
-                            inst.submissionStatus === 'Submitted'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : inst.submissionStatus === 'Discrepancy Detected'
-                              ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200'
-                          }`}
-                        >
-                          {inst.submissionStatus}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => setSelectedInstitution(inst)}
-                          className="px-2.5 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
-                        >
-                          Inspect
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <DataTable
+        columns={columns}
+        data={paginatedInstitutions}
+        keyExtractor={(i) => i.id}
+        onRowClick={(inst) => setSelectedInstitution(inst)}
+        selectedId={selectedInstitution?.id}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onSort={handleSort}
+        density={density}
+        currentPage={currentPage}
+        pageSize={pageSize}
+        totalItems={filteredInstitutions.length}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(sz) => {
+          setPageSize(sz);
+          setCurrentPage(1);
+        }}
+      />
 
       {/* Selected Institution Drawer */}
       {selectedInstitution && (
@@ -373,21 +441,18 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
         />
       )}
 
-      {/* New Audit Case Modal */}
+      {/* Open Case Modal */}
       {newCaseModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-md w-full p-6 text-slate-800 space-y-4">
-            <h3 className="text-base font-bold text-slate-900">Open Regulatory Audit Case</h3>
-            <p className="text-xs text-slate-500">
-              Instantiate formal inquiry case with assigned reviewer, timeline tracking, and institutional clarification requests.
-            </p>
+          <div className="bg-white rounded-lg shadow-xl border border-[#E5E7EB] max-w-md w-full p-5 text-[#111827] space-y-4">
+            <h3 className="text-sm font-semibold text-[#111827]">Open Regulatory Audit Case</h3>
             <form onSubmit={handleCreateCaseSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Target Institution</label>
+                <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Target Institution</label>
                 <select
                   value={caseTargetInstId}
                   onChange={(e) => setCaseTargetInstId(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-2.5 py-1.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-[#111827]"
                   required
                 >
                   {institutions.map((i) => (
@@ -399,26 +464,26 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Audit Priority</label>
+                <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Priority Classification</label>
                 <select
                   value={casePriority}
                   onChange={(e) => setCasePriority(e.target.value as any)}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-2.5 py-1.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-[#111827]"
                 >
-                  <option value="Urgent">Urgent (Immediate Showcause)</option>
-                  <option value="High">High (7-Day Notice)</option>
-                  <option value="Normal">Normal (Routine Inquiry)</option>
-                  <option value="Low">Low (Advisory Check)</option>
+                  <option value="Urgent">Urgent Priority</option>
+                  <option value="High">High Priority</option>
+                  <option value="Normal">Normal Priority</option>
+                  <option value="Low">Low Priority</option>
                 </select>
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 mb-1">Inquiry Terms & Summary</label>
+                <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Inquiry Terms & Notes</label>
                 <textarea
                   value={caseSummary}
                   onChange={(e) => setCaseSummary(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="w-full px-2.5 py-1.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-[#111827]"
                   required
                 />
               </div>
@@ -427,15 +492,15 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setNewCaseModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded"
+                  className="px-3 py-1.5 text-xs text-[#4B5563] hover:bg-[#F3F4F6] rounded-md border border-[#E5E7EB]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded shadow-xs"
+                  className="px-3 py-1.5 text-xs font-medium text-white bg-[#2457D6] hover:bg-blue-700 rounded-md"
                 >
-                  Open Case & Notify Reviewer
+                  Open Case
                 </button>
               </div>
             </form>
