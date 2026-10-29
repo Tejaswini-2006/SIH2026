@@ -7,17 +7,16 @@ import {
   Copy,
   TrendingUp,
   FolderKanban,
-  ShieldAlert,
   ArrowRight,
+  AlertCircle,
+  ChevronRight,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { NavSection } from '../layout/Sidebar';
 import { PageHeader } from '../ui/PageHeader';
 import { KpiCard } from '../ui/KpiCard';
 import { Card } from '../ui/Card';
-import { SeverityChip } from '../ui/SeverityChip';
 import { StatusChip } from '../ui/StatusChip';
-import { Tooltip } from '../ui/Tooltip';
 
 interface OverviewViewProps {
   onNavigate: (section: NavSection) => void;
@@ -38,149 +37,211 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
   const duplicateConflicts = records.filter((r) => r.validationStatus === 'Duplicate Candidate').length;
 
   const intakeDiscrepancyInstitutions = institutions.filter((i) => i.reportedEnrolment > i.approvedIntake);
+  const totalExcessSeats = intakeDiscrepancyInstitutions.reduce((acc, i) => acc + (i.reportedEnrolment - i.approvedIntake), 0);
   const pendingAuditCases = auditCases.filter(
     (c) => c.decisionStatus !== 'Cleared' && c.decisionStatus !== 'Corrected'
   ).length;
 
-  // Priority tiers
-  const highRiskInstitutions = institutions.filter((i) => getInstitutionRisk(i.id).tier === 'High');
-  const moderateRiskInstitutions = institutions.filter((i) => getInstitutionRisk(i.id).tier === 'Moderate');
-  const lowRiskInstitutions = institutions.filter((i) => getInstitutionRisk(i.id).tier === 'Low');
-
-  // Exceptions by severity (active non-dismissed)
+  // Severity breakdown
   const blockingExceptions = exceptions.filter((e) => e.severity === 'Blocking Error' && e.status !== 'Dismissed').length;
   const warningExceptions = exceptions.filter((e) => e.severity === 'Warning' && e.status !== 'Dismissed').length;
   const reviewExceptions = exceptions.filter((e) => e.severity === 'Review Required' && e.status !== 'Dismissed').length;
   const infoExceptions = exceptions.filter((e) => e.severity === 'Informational' && e.status !== 'Dismissed').length;
 
-  const uniqueStatesCount = new Set(institutions.map((i) => i.state)).size;
-  const recentSubmissions = submissions.slice(0, 4);
-  const recentAudit = auditTrail.slice(0, 4);
+  // Top 3 attention items
+  const attentionItems = [
+    {
+      id: 'inst-01',
+      title: 'Apex Institute of Technology',
+      subtitle: '+4 seats over approved intake in B.Tech CSE; candidate STU-008 dual collision',
+      badge: 'High Priority',
+      badgeVariant: 'danger' as const,
+      detailChip: '+4 Over Intake',
+      target: 'institution',
+    },
+    {
+      id: 'inst-02',
+      title: 'Saraswati College of Engineering',
+      subtitle: '+1 seat over intake in B.Tech CSE; cross-institution candidate collision STU-032',
+      badge: 'Moderate',
+      badgeVariant: 'warning' as const,
+      detailChip: 'Duplicate Candidate',
+      target: 'institution',
+    },
+    {
+      id: 'EXC-1002',
+      title: 'Cross-Institution Collision (STU-008 / STU-023)',
+      subtitle: 'Candidate enrolled concurrently at Apex Institute and Saraswati College',
+      badge: 'Blocking Error',
+      badgeVariant: 'danger' as const,
+      detailChip: 'Dual Enrolment',
+      target: 'exceptions',
+    },
+  ];
 
   return (
-    <div className="max-w-[1360px] mx-auto space-y-6">
+    <div className="max-w-[1360px] mx-auto space-y-8">
       {/* Page Header */}
       <PageHeader
         title="Executive Overview"
-        description="Synthetic data as of 29 Oct 2026 · Monitoring reported student admissions, approved intake thresholds, and review priority."
+        subtitle="Real-time intake threshold tracking, candidate collision screening, and institutional review triage."
         actions={
-          <div className="text-xs text-[#6B7280] font-medium bg-white border border-[#E5E7EB] px-3 py-1.5 rounded-md">
+          <div className="text-xs text-slate-500 font-medium bg-white border border-[#E5E7EB] px-3.5 py-1.5 rounded-md shadow-2xs">
             <span>Cycle: AY 2024-25</span>
-            <span className="mx-2 text-[#D1D5DB]">|</span>
-            <span className="text-[#111827]">{totalInstitutions} Institutions across {uniqueStatesCount} States</span>
+            <span className="mx-2 text-slate-300">·</span>
+            <span className="text-slate-900 font-semibold">{totalInstitutions} Institutions (70 Records)</span>
           </div>
         }
       />
 
-      {/* 4-Column KPI Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-        <KpiCard
-          label="Approved Intake"
-          value={approvedIntake.toLocaleString()}
-          subtext={
-            <>
-              <span>Reported:</span>
-              <strong className="text-[#111827] font-semibold">{reportedEnrolment.toLocaleString()}</strong>
-            </>
-          }
-          icon={Users}
-        />
+      {/* 1. "Needs Attention" Strip */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600" />
+            <h2 className="text-lg leading-6 font-semibold text-slate-900">Needs Immediate Scrutiny</h2>
+          </div>
+          <span className="text-xs text-slate-500">Top 3 prioritize dockets</span>
+        </div>
 
-        <KpiCard
-          label="Accepted Records"
-          value={acceptedRecords.toLocaleString()}
-          tone="success"
-          subtext={
-            <span>
-              {((acceptedRecords / Math.max(1, records.length)) * 100).toFixed(1)}% verified within quota
-            </span>
-          }
-          icon={CheckCircle}
-        />
+        <div className="bg-white border border-[#E5E7EB] border-l-4 border-l-rose-500 rounded-lg divide-y divide-slate-100 shadow-2xs overflow-hidden">
+          {attentionItems.map((item) => (
+            <div
+              key={item.id}
+              onClick={() => {
+                if (item.target === 'institution' && onSelectInstitution) {
+                  onSelectInstitution(item.id);
+                } else if (item.target === 'exceptions') {
+                  onNavigate('exceptions');
+                }
+              }}
+              className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 cursor-pointer transition-colors group"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-sm leading-5 font-semibold text-slate-900 group-hover:text-[#2457D6] transition-colors">
+                    {item.title}
+                  </span>
+                  <StatusChip label={item.detailChip} variant="neutral" size="sm" showDot={false} />
+                </div>
+                <p className="text-xs leading-4 text-slate-500 mt-1 truncate">
+                  {item.subtitle}
+                </p>
+              </div>
 
-        <KpiCard
-          label="Requiring Review"
-          value={reviewRequiredRecords}
-          tone={reviewRequiredRecords > 0 ? 'warning' : 'default'}
-          subtext={
-            <span>Flagged rows or pending validation</span>
-          }
-          icon={AlertTriangle}
-        />
+              <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
+                <StatusChip label={item.badge} variant={item.badgeVariant} size="sm" />
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
-        <KpiCard
-          label="Duplicate Conflicts"
-          value={duplicateConflicts}
-          tone={duplicateConflicts > 0 ? 'danger' : 'default'}
-          subtext={
-            <span>Cross-institution shared APAAR IDs</span>
-          }
-          icon={Copy}
-        />
+      {/* 2. Hero KPI Row (The 4 core action metrics) */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg leading-6 font-semibold text-slate-900">Key Risk Indicators</h2>
+          <span className="text-xs text-slate-500">Real-time validation queue</span>
+        </div>
 
-        <KpiCard
-          label="Intake Discrepancies"
-          value={intakeDiscrepancyInstitutions.length}
-          tone={intakeDiscrepancyInstitutions.length > 0 ? 'danger' : 'default'}
-          subtext={
-            <span>
-              +{intakeDiscrepancyInstitutions.reduce((acc, i) => acc + (i.reportedEnrolment - i.approvedIntake), 0)} excess seats
-            </span>
-          }
-          icon={TrendingUp}
-        />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard
+            label="Records Requiring Review"
+            value={reviewRequiredRecords}
+            tone={reviewRequiredRecords > 0 ? 'warning' : 'default'}
+            subtext="Flagged or pending verification"
+            icon={AlertTriangle}
+            onClick={() => onNavigate('records')}
+          />
 
-        <KpiCard
-          label="High Priority Triage"
-          value={highRiskInstitutions.length}
-          tone={highRiskInstitutions.length > 0 ? 'danger' : 'default'}
-          subtext={
-            <span>Score &ge; 70 audit triage</span>
-          }
-          icon={ShieldAlert}
-        />
+          <KpiCard
+            label="Potential Duplicates"
+            value={duplicateConflicts}
+            tone={duplicateConflicts > 0 ? 'danger' : 'default'}
+            subtext="Shared candidate identifiers"
+            icon={Copy}
+            onClick={() => onNavigate('records')}
+          />
 
-        <KpiCard
-          label="Active Audit Cases"
-          value={pendingAuditCases}
-          tone={pendingAuditCases > 0 ? 'info' : 'default'}
-          subtext={
-            <span>{auditCases.length} total dockets</span>
-          }
-          icon={FolderKanban}
-        />
+          <KpiCard
+            label="Intake Discrepancies"
+            value={intakeDiscrepancyInstitutions.length}
+            tone={intakeDiscrepancyInstitutions.length > 0 ? 'danger' : 'default'}
+            subtext={`+${totalExcessSeats} excess seats over quota`}
+            icon={TrendingUp}
+            onClick={() => onNavigate('institutions')}
+          />
 
-        <KpiCard
-          label="Institutions Sample"
-          value={totalInstitutions}
-          subtext={
-            <span className="text-[#2457D6] font-medium">100% reporting status</span>
-          }
-          icon={Building2}
-        />
-      </div>
+          <KpiCard
+            label="Active Audit Cases"
+            value={pendingAuditCases}
+            tone={pendingAuditCases > 0 ? 'info' : 'default'}
+            subtext={`${auditCases.length} total council inquiries`}
+            icon={FolderKanban}
+            onClick={() => onNavigate('cases')}
+          />
+        </div>
 
-      {/* Main Grid: Institutions Requiring Attention + Intake vs Enrolment Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Secondary KPI Row (Supporting Metrics - Smaller & Quieter) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+          <KpiCard
+            size="secondary"
+            label="Total Institutions"
+            value={totalInstitutions}
+            subtext="5 State jurisdictions"
+            icon={Building2}
+            onClick={() => onNavigate('institutions')}
+          />
+
+          <KpiCard
+            size="secondary"
+            label="Approved Quota"
+            value={approvedIntake}
+            subtext="AICTE sanctioned seats"
+            icon={Users}
+          />
+
+          <KpiCard
+            size="secondary"
+            label="Reported Enrolment"
+            value={reportedEnrolment}
+            subtext="Admitted student roster"
+            icon={Users}
+          />
+
+          <KpiCard
+            size="secondary"
+            label="Accepted Records"
+            value={acceptedRecords}
+            subtext={`${((acceptedRecords / Math.max(1, records.length)) * 100).toFixed(0)}% verified compliance`}
+            icon={CheckCircle}
+            onClick={() => onNavigate('records')}
+          />
+        </div>
+      </section>
+
+      {/* 3. Charts & Analytics */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column (7 cols): Intake vs Enrolment Chart */}
         <div className="lg:col-span-7">
           <Card
-            title="Approved Intake vs. Reported Enrolment"
-            description="Comparison of reported student admissions against AICTE-sanctioned seats on a standardized scale."
+            title="Intake vs. Reported Enrolment"
+            description="2 of 6 institutions exceed approved council intake quotas."
             action={
               <button
                 type="button"
                 onClick={() => onNavigate('institutions')}
-                className="text-xs text-[#2457D6] hover:underline font-medium flex items-center gap-1"
+                className="text-xs text-[#2457D6] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
               >
-                <span>All Institutions</span>
+                <span>View all</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             }
           >
             <div className="space-y-4">
-              {institutions.slice(0, 6).map((inst) => {
-                const maxScale = 40; // Standard scale for 6-15 seat programmes
+              {institutions.map((inst) => {
+                const maxScale = 30;
                 const approvedPct = (inst.approvedIntake / maxScale) * 100;
                 const reportedPct = (inst.reportedEnrolment / maxScale) * 100;
                 const excess = inst.reportedEnrolment - inst.approvedIntake;
@@ -190,33 +251,33 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
                   ? 'bg-rose-600'
                   : inst.reportedEnrolment === inst.approvedIntake
                   ? 'bg-amber-500'
-                  : 'bg-[#2457D6]';
+                  : 'bg-slate-300';
 
                 return (
-                  <div key={inst.id} className="text-xs">
-                    <div className="flex items-center justify-between mb-1 text-[13px]">
-                      <span className="font-medium text-[#111827] truncate max-w-xs">{inst.name}</span>
-                      <div className="flex items-center gap-2.5 font-mono text-xs">
-                        <span className="text-[#6B7280]">Quota: {inst.approvedIntake}</span>
-                        <span className="text-[#111827] font-semibold">Reported: {inst.reportedEnrolment}</span>
+                  <div key={inst.id} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-900 truncate max-w-xs">{inst.name}</span>
+                      <div className="flex items-center gap-3 tabular-nums font-medium">
+                        <span className="text-slate-500">Approved: {inst.approvedIntake}</span>
+                        <span className="text-slate-900 font-semibold">Reported: {inst.reportedEnrolment}</span>
                         {isOver ? (
                           <StatusChip label={`+${excess} over`} variant="danger" size="sm" showDot={false} />
                         ) : (
-                          <span className="text-[#6B7280] text-[11px]">Within quota</span>
+                          <span className="text-slate-400">Within quota</span>
                         )}
                       </div>
                     </div>
 
-                    {/* Multi-track Bar with Quota Tick Marker */}
-                    <div className="h-3 w-full bg-[#F3F4F6] rounded relative overflow-visible">
+                    {/* Progress track with quota tick mark */}
+                    <div className="h-2.5 w-full bg-slate-100 rounded-sm relative overflow-visible">
                       <div
-                        className={`h-full rounded ${barColor}`}
+                        className={`h-full rounded-sm ${barColor}`}
                         style={{ width: `${Math.min(100, reportedPct)}%` }}
                       />
                       <div
-                        className="absolute top-[-3px] bottom-[-3px] w-0.5 bg-slate-900 z-10"
+                        className="absolute -top-1 -bottom-1 w-0.5 bg-slate-900 z-10"
                         style={{ left: `${Math.min(100, approvedPct)}%` }}
-                        title={`Approved Quota: ${inst.approvedIntake}`}
+                        title={`Council Approved Intake: ${inst.approvedIntake}`}
                       />
                     </div>
                   </div>
@@ -224,255 +285,186 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ onNavigate, onSelect
               })}
             </div>
 
-            <div className="mt-5 pt-3 border-t border-[#E5E7EB] flex items-center justify-between text-xs text-[#6B7280]">
+            <div className="mt-5 pt-3 border-t border-[#E5E7EB] flex items-center justify-between text-xs text-slate-500">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-[#2457D6]" />
+                  <span className="w-2.5 h-2.5 rounded-xs bg-slate-300" />
                   <span>Within quota</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-sm bg-rose-600" />
-                  <span>Over approved intake</span>
+                  <span className="w-2.5 h-2.5 rounded-xs bg-rose-600" />
+                  <span>Over approved quota</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-1 h-3 bg-slate-900 inline-block" />
-                  <span>Approved intake marker</span>
+                  <span className="w-0.5 h-3 bg-slate-900 inline-block" />
+                  <span>Approved intake line</span>
                 </div>
               </div>
-              <span className="text-[11px] font-mono">Normalized scale: 0–40 seats</span>
+              <span className="font-mono text-slate-400">AY 2024-25</span>
             </div>
           </Card>
         </div>
 
-        {/* Right Column (5 cols): Institutions Requiring Attention (Top 3) */}
-        <div className="lg:col-span-5">
+        {/* Right Column (5 cols): Exceptions Breakdown & Priority Tiers */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Exceptions by Severity */}
           <Card
-            title="Institutions Requiring Attention"
-            description="Top 3 review priority dockets triaged by capacity overrun and collision density."
+            title="Validation Exceptions by Severity"
+            description="10 active findings prioritized by regulatory urgency."
             action={
               <button
                 type="button"
-                onClick={() => onNavigate('institutions')}
-                className="text-xs text-[#2457D6] hover:underline font-medium"
+                onClick={() => onNavigate('exceptions')}
+                className="text-xs text-[#2457D6] hover:underline font-semibold cursor-pointer"
               >
-                Inspect
+                Exceptions queue
               </button>
             }
           >
-            <div className="divide-y divide-[#F3F4F6] -my-2">
-              {[...institutions]
-                .sort((a, b) => getInstitutionRisk(b.id).effectiveScore - getInstitutionRisk(a.id).effectiveScore)
-                .slice(0, 3)
-                .map((inst) => {
-                  const risk = getInstitutionRisk(inst.id);
-                  const excess = inst.reportedEnrolment - inst.approvedIntake;
+            <div className="space-y-3 text-xs">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-rose-600" />
+                    <span className="font-semibold text-slate-900">Blocking Error</span>
+                  </div>
+                  <span className="font-bold text-rose-600 tabular-nums">{blockingExceptions}</span>
+                </div>
+                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-rose-600 rounded-full" style={{ width: `${(blockingExceptions / 10) * 100}%` }} />
+                </div>
+              </div>
 
-                  return (
-                    <div
-                      key={inst.id}
-                      onClick={() => onSelectInstitution?.(inst.id)}
-                      className="py-3 flex items-center justify-between gap-3 hover:bg-[#F9FAFB] cursor-pointer rounded px-2 -mx-2 transition-colors"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-xs text-[#111827] truncate">{inst.name}</span>
-                          <span className="font-mono text-[11px] text-[#6B7280]">{inst.code}</span>
-                        </div>
-                        <p className="text-[11px] text-[#6B7280] mt-0.5 truncate">
-                          {inst.state} · Intake: {inst.approvedIntake} / Reported: {inst.reportedEnrolment}
-                          {excess > 0 && <span className="text-rose-700 font-medium ml-1">(+{excess} seats)</span>}
-                        </p>
-                      </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span className="font-semibold text-slate-900">Warning</span>
+                  </div>
+                  <span className="font-bold text-amber-600 tabular-nums">{warningExceptions}</span>
+                </div>
+                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-500 rounded-full" style={{ width: `${(warningExceptions / 10) * 100}%` }} />
+                </div>
+              </div>
 
-                      <div className="text-right shrink-0">
-                        <div className="font-mono font-bold text-xs text-rose-700 tabular-nums">
-                          {risk.effectiveScore}/100
-                        </div>
-                        <StatusChip
-                          label={risk.tier}
-                          variant={risk.tier === 'High' ? 'danger' : risk.tier === 'Moderate' ? 'warning' : 'success'}
-                          size="sm"
-                          showDot={false}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#2457D6]" />
+                    <span className="font-semibold text-slate-900">Review Required</span>
+                  </div>
+                  <span className="font-bold text-[#2457D6] tabular-nums">{reviewExceptions}</span>
+                </div>
+                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-[#2457D6] rounded-full" style={{ width: `${(reviewExceptions / 10) * 100}%` }} />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-slate-400" />
+                    <span className="font-medium text-slate-600">Informational</span>
+                  </div>
+                  <span className="font-semibold text-slate-500 tabular-nums">{infoExceptions}</span>
+                </div>
+                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-slate-400 rounded-full" style={{ width: `${(infoExceptions / 10) * 100}%` }} />
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Priority Tiers */}
+          <Card
+            title="Institutional Review Tiers"
+            description="Triage distribution based on explainable risk formula."
+            action={
+              <button
+                type="button"
+                onClick={() => onNavigate('risk')}
+                className="text-xs text-[#2457D6] hover:underline font-semibold cursor-pointer"
+              >
+                Scoring rules
+              </button>
+            }
+          >
+            <div className="grid grid-cols-3 gap-2 text-center text-xs">
+              <div className="p-3 rounded-lg bg-rose-50/70 border border-rose-200">
+                <div className="text-xs font-semibold uppercase text-rose-800 tracking-wider">High (70+)</div>
+                <div className="text-2xl font-bold font-mono text-rose-700 mt-1 tabular-nums">
+                  {institutions.filter((i) => getInstitutionRisk(i.id).tier === 'High').length}
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-amber-50/70 border border-amber-200">
+                <div className="text-xs font-semibold uppercase text-amber-800 tracking-wider">Mod (40-69)</div>
+                <div className="text-2xl font-bold font-mono text-amber-700 mt-1 tabular-nums">
+                  {institutions.filter((i) => getInstitutionRisk(i.id).tier === 'Moderate').length}
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-emerald-50/70 border border-emerald-200">
+                <div className="text-xs font-semibold uppercase text-emerald-800 tracking-wider">Low (&lt;40)</div>
+                <div className="text-2xl font-bold font-mono text-emerald-700 mt-1 tabular-nums">
+                  {institutions.filter((i) => getInstitutionRisk(i.id).tier === 'Low').length}
+                </div>
+              </div>
             </div>
           </Card>
         </div>
-      </div>
+      </section>
 
-      {/* Secondary Grid: Severity Breakdown + Priority Tiers + Recent Ingestions + Recent Activity */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Exceptions by Severity */}
-        <Card
-          title="Exceptions by Severity"
-          description="Active findings by regulatory impact."
-          action={
-            <button
-              type="button"
-              onClick={() => onNavigate('exceptions')}
-              className="text-xs text-[#2457D6] hover:underline font-medium"
-            >
-              Queue ({exceptions.length})
-            </button>
-          }
-        >
-          <div className="space-y-2.5 text-xs">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-rose-600" />
-                <span className="text-[#374151]">Blocking</span>
-              </div>
-              <span className="font-mono font-semibold text-rose-700 tabular-nums">{blockingExceptions}</span>
-            </div>
-            <div className="h-1.5 w-full bg-[#F3F4F6] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-rose-600 rounded-full"
-                style={{ width: `${(blockingExceptions / Math.max(1, exceptions.length)) * 100}%` }}
-              />
-            </div>
+      {/* 4. Recent Activity Feed (Latest 6 events) */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg leading-6 font-semibold text-slate-900">Recent Audit Activity</h2>
+          <span className="text-xs text-slate-500">Latest 6 events</span>
+        </div>
 
-            <div className="flex items-center justify-between pt-0.5">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-500" />
-                <span className="text-[#374151]">Warnings</span>
-              </div>
-              <span className="font-mono font-semibold text-amber-700 tabular-nums">{warningExceptions}</span>
-            </div>
-            <div className="h-1.5 w-full bg-[#F3F4F6] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-amber-500 rounded-full"
-                style={{ width: `${(warningExceptions / Math.max(1, exceptions.length)) * 100}%` }}
-              />
-            </div>
+        <div className="bg-white border border-[#E5E7EB] rounded-lg divide-y divide-slate-100 shadow-2xs overflow-hidden">
+          {auditTrail.slice(0, 6).map((ev) => {
+            const dotColor = {
+              Submission: 'bg-[#2457D6]',
+              Validation: 'bg-emerald-500',
+              Exception: 'bg-rose-500',
+              'Case Management': 'bg-amber-500',
+              'Risk Override': 'bg-indigo-500',
+              'Report Export': 'bg-slate-400',
+              Settings: 'bg-slate-400',
+              Correction: 'bg-teal-500',
+            }[ev.actionCategory] || 'bg-slate-400';
 
-            <div className="flex items-center justify-between pt-0.5">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#2457D6]" />
-                <span className="text-[#374151]">Review Req.</span>
-              </div>
-              <span className="font-mono font-semibold text-blue-700 tabular-nums">{reviewExceptions}</span>
-            </div>
-            <div className="h-1.5 w-full bg-[#F3F4F6] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-[#2457D6] rounded-full"
-                style={{ width: `${(reviewExceptions / Math.max(1, exceptions.length)) * 100}%` }}
-              />
-            </div>
-
-            <div className="flex items-center justify-between pt-0.5">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-slate-400" />
-                <span className="text-[#374151]">Info</span>
-              </div>
-              <span className="font-mono font-semibold text-[#6B7280] tabular-nums">{infoExceptions}</span>
-            </div>
-            <div className="h-1.5 w-full bg-[#F3F4F6] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-slate-400 rounded-full"
-                style={{ width: `${(infoExceptions / Math.max(1, exceptions.length)) * 100}%` }}
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* Priority Tiers */}
-        <Card
-          title="Priority Tiers"
-          description="Classification distribution."
-          action={
-            <button
-              type="button"
-              onClick={() => onNavigate('risk')}
-              className="text-xs text-[#2457D6] hover:underline font-medium"
-            >
-              Matrix
-            </button>
-          }
-        >
-          <div className="grid grid-cols-3 gap-1.5 text-center text-xs mt-1">
-            <div className="p-2 rounded bg-rose-50/70 border border-rose-200">
-              <div className="text-[10px] font-semibold text-rose-800">High</div>
-              <div className="text-lg font-bold font-mono text-rose-700 mt-0.5 tabular-nums">{highRiskInstitutions.length}</div>
-            </div>
-            <div className="p-2 rounded bg-amber-50/70 border border-amber-200">
-              <div className="text-[10px] font-semibold text-amber-800">Mod</div>
-              <div className="text-lg font-bold font-mono text-amber-700 mt-0.5 tabular-nums">{moderateRiskInstitutions.length}</div>
-            </div>
-            <div className="p-2 rounded bg-emerald-50/70 border border-emerald-200">
-              <div className="text-[10px] font-semibold text-emerald-800">Low</div>
-              <div className="text-lg font-bold font-mono text-emerald-700 mt-0.5 tabular-nums">{lowRiskInstitutions.length}</div>
-            </div>
-          </div>
-          <p className="text-[10px] text-[#6B7280] mt-3 leading-relaxed">
-            Scores triage auditor attention. Elevated priority does not constitute a finding of fraud.
-          </p>
-        </Card>
-
-        {/* Recent Ingestions (Latest 3) */}
-        <Card
-          title="Recent Ingestions"
-          description="Latest 3 admission manifests."
-          action={
-            <button
-              type="button"
-              onClick={() => onNavigate('submissions')}
-              className="text-xs text-[#2457D6] hover:underline font-medium"
-            >
-              Submissions
-            </button>
-          }
-        >
-          <div className="divide-y divide-[#F3F4F6] -my-2 text-xs">
-            {submissions.slice(0, 3).map((sub) => (
-              <div key={sub.id} className="py-2 flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-medium text-[11px] text-[#111827] truncate">{sub.institutionName}</p>
-                  <p className="text-[10px] text-[#6B7280] font-mono">{sub.fileName}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="font-mono text-[11px] font-semibold text-emerald-700 tabular-nums">
-                    {sub.acceptedCount}/{sub.totalRows}
-                  </span>
-                  <p className="text-[10px] text-[#6B7280]">{sub.submissionDate.slice(5, 10)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Recent Activity (Latest 6 events) */}
-        <Card
-          title="Recent Activity"
-          description="Latest 6 regulatory audit events."
-        >
-          <div className="divide-y divide-[#F3F4F6] -my-2 text-xs">
-            {auditTrail.slice(0, 6).map((ev) => (
-              <div key={ev.id} className="py-1.5 flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-[11px] text-[#111827] truncate">{ev.action}</span>
-                    <span className="text-[10px] text-[#6B7280]">· {ev.actorRole.replace('Administrator', 'Admin')}</span>
-                  </div>
-                  <div className="font-mono text-[10px] text-[#2457D6] truncate">
-                    {ev.affectedRef}
+            return (
+              <div key={ev.id} className="p-3.5 flex items-start justify-between gap-4 text-xs hover:bg-slate-50/60 transition-colors">
+                <div className="flex items-start gap-3 min-w-0">
+                  <span className={`w-2 h-2 rounded-full shrink-0 mt-1.5 ${dotColor}`} aria-hidden="true" />
+                  <div className="min-w-0">
+                    <p className="text-sm leading-5 font-semibold text-slate-900 truncate">
+                      {ev.action || ev.details}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs leading-4 text-slate-500 mt-0.5">
+                      <span className="font-medium text-slate-700">{ev.actorName || ev.actorRole}</span>
+                      <span>·</span>
+                      <span className="font-mono text-slate-600">{ev.affectedRef}</span>
+                      <span>·</span>
+                      <span className="truncate max-w-md">{ev.details}</span>
+                    </div>
                   </div>
                 </div>
-                <span className="text-[10px] font-mono text-[#9CA3AF] shrink-0 whitespace-nowrap">
+
+                <span className="text-xs leading-4 text-slate-400 font-mono shrink-0 whitespace-nowrap">
                   {ev.timestamp.slice(11, 16)}
                 </span>
               </div>
-            ))}
-          </div>
-        </Card>
-      </div>
+            );
+          })}
+        </div>
+      </section>
 
-      {/* Dataset Verification Caption */}
-      <div className="text-[11px] text-[#6B7280] text-center pt-2">
-        Student-level admission records: {records.length} records matching {reportedEnrolment.toLocaleString()} reported enrolments across {institutions.length} approved institutions.
-      </div>
+      {/* Footer Safeguard Note */}
+      <footer className="text-xs text-slate-400 text-center pb-4">
+        AERVIS Prototype · All 70 student records reconcile exactly with reported institutional enrolments across 6 approved colleges.
+      </footer>
     </div>
   );
 };

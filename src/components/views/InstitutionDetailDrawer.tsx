@@ -116,24 +116,24 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
       {/* KPI Overview Strip */}
       <div className="grid grid-cols-4 border-b border-[#E5E7EB] bg-[#F9FAFB] text-xs divide-x divide-[#E5E7EB]">
         <div className="p-3">
-          <span className="text-[11px] text-[#6B7280]">Approved Quota</span>
+          <span className="text-xs text-[#6B7280]">Approved Quota</span>
           <p className="text-sm font-semibold tabular-nums text-[#111827] mt-0.5">{institution.approvedIntake}</p>
         </div>
         <div className="p-3">
-          <span className="text-[11px] text-[#6B7280]">Reported</span>
+          <span className="text-xs text-[#6B7280]">Reported</span>
           <p className={`text-sm font-semibold tabular-nums mt-0.5 ${isOver ? 'text-rose-700' : 'text-[#111827]'}`}>
             {institution.reportedEnrolment} {isOver && <span className="text-xs font-normal text-rose-600">(+{excess})</span>}
           </p>
         </div>
         <div className="p-3">
-          <span className="text-[11px] text-[#6B7280]">Priority Score</span>
+          <span className="text-xs text-[#6B7280]">Priority Score</span>
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className="text-sm font-semibold tabular-nums text-[#111827]">{riskProfile.effectiveScore}/100</span>
             <SeverityChip severity={riskProfile.tier} size="sm" />
           </div>
         </div>
         <div className="p-3">
-          <span className="text-[11px] text-[#6B7280]">Active Issues</span>
+          <span className="text-xs text-[#6B7280]">Active Issues</span>
           <p className="text-sm font-semibold tabular-nums text-[#111827] mt-0.5">
             {instExceptions.filter((e) => e.status !== 'Resolved' && e.status !== 'Dismissed').length} Exceptions
           </p>
@@ -181,7 +181,7 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
                         <td className="px-3.5 py-2 font-mono text-xs text-[#6B7280]">{p.code}</td>
                         <td className="px-3.5 py-2 font-medium text-[#111827]">
                           <div>{p.name}</div>
-                          <div className="text-[10px] text-[#6B7280]">{p.degreeLevel}</div>
+                          <div className="text-xs text-[#6B7280]">{p.degreeLevel}</div>
                         </td>
                         <td className="px-3.5 py-2 text-right tabular-nums text-[#6B7280]">{p.approvedIntake}</td>
                         <td className="px-3.5 py-2 text-right tabular-nums font-semibold text-[#111827]">
@@ -214,7 +214,7 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
                 <span>Explainable Priority Assessment</span>
               </div>
               <p className="text-xs text-[#4B5563] leading-relaxed">{riskProfile.plainExplanation}</p>
-              <div className="pt-2 border-t border-[#E5E7EB] text-[11px] text-[#6B7280]">
+              <div className="pt-2 border-t border-[#E5E7EB] text-xs text-[#6B7280]">
                 <strong>Safeguard:</strong> Operational indicator only; does not imply wrongdoing or fraud.
               </div>
             </div>
@@ -248,9 +248,9 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
                     </div>
                   </div>
                   <p className="text-xs text-[#4B5563]">{ind.explanation}</p>
-                  <div className="flex justify-between text-[11px] text-[#6B7280] pt-1 border-t border-[#F3F4F6]">
+                  <div className="flex justify-between text-xs text-[#6B7280] pt-1 border-t border-[#F3F4F6]">
                     <span>Observed: {ind.rawValue}</span>
-                    <span className="font-mono text-[10px]">Weight: {ind.weight}%</span>
+                    <span className="font-mono text-xs">Weight: {ind.weight}%</span>
                   </div>
                 </div>
               ))}
@@ -271,7 +271,7 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
                   <h5 className="font-semibold text-[#111827]">Record Reasoned Override</h5>
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-[11px] text-[#4B5563] mb-1 font-medium">Score (0–100)</label>
+                      <label className="block text-xs text-[#4B5563] mb-1 font-medium">Score (0–100)</label>
                       <input
                         type="number"
                         min="0"
@@ -283,7 +283,7 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
                       />
                     </div>
                     <div className="col-span-2">
-                      <label className="block text-[11px] text-[#4B5563] mb-1 font-medium">Justification Reason</label>
+                      <label className="block text-xs text-[#4B5563] mb-1 font-medium">Justification Reason</label>
                       <input
                         type="text"
                         value={overrideReasonInput}
@@ -328,11 +328,11 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
                       <span className="font-mono text-xs font-semibold text-[#111827]">{ex.id}</span>
                       <SeverityChip severity={ex.severity} size="sm" />
                     </div>
-                    <span className="text-[11px] text-[#6B7280]">{ex.detectionTimestamp.slice(0, 10)}</span>
+                    <span className="text-xs text-[#6B7280]">{ex.detectionTimestamp.slice(0, 10)}</span>
                   </div>
                   <p className="text-xs font-medium text-[#111827]">{ex.reason}</p>
-                  <p className="text-[11px] text-[#6B7280]">{ex.evidence}</p>
-                  <div className="flex justify-between items-center text-[11px] pt-1 border-t border-[#F3F4F6] text-[#6B7280]">
+                  <p className="text-xs text-[#6B7280]">{ex.evidence}</p>
+                  <div className="flex justify-between items-center text-xs pt-1 border-t border-[#F3F4F6] text-[#6B7280]">
                     <span>Status: <strong className="text-[#111827]">{ex.status}</strong></span>
                     <span>Reviewer: {ex.assignedReviewer}</span>
                   </div>
@@ -352,9 +352,9 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
                 <div key={sub.id} className="p-3 border border-[#E5E7EB] rounded-lg space-y-1 text-xs">
                   <div className="flex justify-between font-medium text-[#111827]">
                     <span className="font-mono">{sub.fileName}</span>
-                    <span className="font-mono text-[11px] text-[#6B7280]">{sub.receiptNumber}</span>
+                    <span className="font-mono text-xs text-[#6B7280]">{sub.receiptNumber}</span>
                   </div>
-                  <div className="flex gap-4 text-[11px] text-[#4B5563] pt-1">
+                  <div className="flex gap-4 text-xs text-[#4B5563] pt-1">
                     <span>Rows: <strong className="tabular-nums font-semibold">{sub.totalRows}</strong></span>
                     <span>Valid: <strong className="tabular-nums font-semibold text-emerald-700">{sub.acceptedCount}</strong></span>
                     <span>Review: <strong className="tabular-nums font-semibold text-amber-700">{sub.reviewRequiredCount}</strong></span>
@@ -378,7 +378,7 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
                       <span className="font-mono font-semibold text-[#111827]">{cs.id}</span>
                       <StatusChip label={cs.decisionStatus} variant="info" size="sm" />
                     </div>
-                    <span className="text-[11px] text-[#6B7280]">{cs.dateOpened}</span>
+                    <span className="text-xs text-[#6B7280]">{cs.dateOpened}</span>
                   </div>
                   <p className="text-[#374151]">{cs.summary}</p>
                 </div>
@@ -399,10 +399,10 @@ export const InstitutionDetailDrawer: React.FC<InstitutionDetailDrawerProps> = (
                     <div className="absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full bg-[#2457D6] ring-4 ring-white" />
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-[#111827]">{ev.action}</span>
-                      <span className="text-[11px] font-mono text-[#6B7280]">{ev.timestamp.slice(0, 16)}</span>
+                      <span className="text-xs font-mono text-[#6B7280]">{ev.timestamp.slice(0, 16)}</span>
                     </div>
-                    <p className="text-[11px] text-[#4B5563] mt-0.5 leading-snug">{ev.details}</p>
-                    <div className="flex items-center gap-2 mt-1 text-[10px] text-[#6B7280]">
+                    <p className="text-xs text-[#4B5563] mt-0.5 leading-snug">{ev.details}</p>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-[#6B7280]">
                       <span className="font-medium text-[#374151]">{ev.actorRole}</span>
                       <span>·</span>
                       <span className="font-mono">{ev.affectedRef}</span>

@@ -1,25 +1,22 @@
 import React, { useState, useMemo } from 'react';
 import {
   ShieldAlert,
-  HelpCircle,
-  Sliders,
-  CheckCircle2,
+  SlidersHorizontal,
+  ChevronRight,
+  TrendingUp,
   AlertTriangle,
   RotateCcw,
+  CheckCircle,
+  HelpCircle,
   Edit3,
-  ExternalLink,
-  ChevronRight,
-  ShieldCheck,
-  TrendingUp,
-  BarChart2,
-  SlidersHorizontal,
+  Sliders,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { useToast } from '../ui/ToastContext';
-import { Institution, RiskRuleWeights } from '../../types';
 import { calculateInstitutionRisk, DEFAULT_RISK_WEIGHTS } from '../../utils/engine';
+import { RiskRuleWeights, InstitutionRiskProfile } from '../../types';
 import { PageHeader } from '../ui/PageHeader';
 import { Card } from '../ui/Card';
 import { StatusChip } from '../ui/StatusChip';
@@ -33,19 +30,19 @@ export const RiskIntelligenceView: React.FC = () => {
     getInstitutionRisk,
     setInstitutionRiskOverride,
     removeInstitutionRiskOverride,
-    settings,
     updateRuleWeights,
     updateTolerance,
+    settings,
   } = useApp();
   const { showToast } = useToast();
 
   const [selectedInstId, setSelectedInstId] = useState<string>(institutions[0]?.id || '');
   const [tierFilter, setTierFilter] = useState<'all' | 'High' | 'Moderate' | 'Low'>('all');
 
-  // Reasoned override state
+  // Override modal
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
-  const [overrideScore, setOverrideScore] = useState('');
-  const [overrideReason, setOverrideReason] = useState('');
+  const [overrideScore, setOverrideScore] = useState<string>('');
+  const [overrideReason, setOverrideReason] = useState<string>('');
 
   // Collapsible Scoring rules panel state
   const [isScoringRulesOpen, setIsScoringRulesOpen] = useState(false);
@@ -141,21 +138,27 @@ export const RiskIntelligenceView: React.FC = () => {
     return { high, mod, low };
   }, [institutions, records, exceptions, weights]);
 
+  // Sorted indicators for the selected institution (highest impact first)
+  const sortedIndicators = useMemo(() => {
+    if (!riskProfile) return [];
+    return [...riskProfile.indicators].sort((a, b) => b.scoreContribution - a.scoreContribution);
+  }, [riskProfile]);
+
   return (
-    <div className="max-w-[1360px] mx-auto space-y-4">
+    <div className="max-w-[1360px] mx-auto space-y-6">
       {/* Page Header */}
       <PageHeader
         title="Risk Intelligence"
-        subtitle="Transparent, explainable review-priority engine evaluating intake overruns, cross-institution duplicate collisions, and data variances."
+        subtitle="Transparent review-priority engine evaluating intake overruns, candidate collisions, and data variances."
         actions={
           <button
             type="button"
             onClick={() => setIsScoringRulesOpen((prev) => !prev)}
-            className="px-3 py-1.5 text-xs font-medium text-[#111827] bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            className="px-3.5 py-1.5 text-xs font-semibold text-slate-800 bg-white hover:bg-slate-50 border border-slate-300 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
           >
             <SlidersHorizontal className="w-3.5 h-3.5 text-[#2457D6]" />
             <span>Scoring Rules ({isScoringRulesOpen ? 'Hide' : 'Configure'})</span>
-            {isScoringRulesOpen ? <ChevronUp className="w-3.5 h-3.5 text-[#6B7280]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#6B7280]" />}
+            {isScoringRulesOpen ? <ChevronUp className="w-3.5 h-3.5 text-slate-500" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500" />}
           </button>
         }
       />
@@ -163,31 +166,36 @@ export const RiskIntelligenceView: React.FC = () => {
       {/* Collapsible Scoring Rules Panel */}
       {isScoringRulesOpen && (
         <Card
-          title="Scoring Rules & Review Calibration"
-          description="Adjust risk indicator weights and intake tolerance threshold. Updates recalculate review-priority scores deterministically."
-          actions={
-            <div className="flex items-center gap-2">
-              <span
-                className={`text-xs font-mono font-semibold px-2 py-0.5 rounded ${
-                  totalWeight === 100
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : 'bg-rose-50 text-rose-700 border border-rose-200'
-                }`}
-              >
-                Weight Sum: {totalWeight}% / 100%
-              </span>
-            </div>
-          }
+          title="Scoring Rule Calibration"
+          description="Calibrate indicator weights and tolerance threshold. Total weights must equal 100%."
         >
-          <form onSubmit={handleSaveScoringRules} className="space-y-4 text-xs pt-1">
-            {/* 5 Indicator Weight Sliders + Tolerance Slider */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB]">
+          <form onSubmit={handleSaveScoringRules} className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-md border border-slate-200 text-xs">
+              <div>
+                <span className="font-semibold text-slate-900">Composite Weight Sum:</span>{' '}
+                <span
+                  className={`font-mono font-bold ${
+                    totalWeight === 100 ? 'text-emerald-700' : 'text-rose-600'
+                  }`}
+                >
+                  {totalWeight}% / 100%
+                </span>
+                {totalWeight !== 100 && (
+                  <span className="text-rose-600 ml-2 font-medium">
+                    (adjust weights by {100 - totalWeight > 0 ? `+${100 - totalWeight}%` : `${100 - totalWeight}%`})
+                  </span>
+                )}
+              </div>
+              <span className="text-xs text-slate-500">Live deterministic recalculation</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+              <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="font-semibold text-[#111827]">Intake Overrun:</span>
+                  <span className="font-semibold text-slate-900">Intake Overrun:</span>
                   <span className="font-mono text-xs font-bold text-[#2457D6]">{weights.intakeOverrun}%</span>
                 </div>
-                <p className="text-[11px] text-[#6B7280] mb-2">Weight for admissions beyond approved capacity</p>
+                <p className="text-xs text-slate-500 mb-2">Weight for reported admissions exceeding approved intake</p>
                 <input
                   type="range"
                   min="0"
@@ -198,12 +206,12 @@ export const RiskIntelligenceView: React.FC = () => {
                 />
               </div>
 
-              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB]">
+              <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="font-semibold text-[#111827]">Duplicate Enrolment:</span>
+                  <span className="font-semibold text-slate-900">Duplicate Enrolment:</span>
                   <span className="font-mono text-xs font-bold text-[#2457D6]">{weights.duplicateEnrolment}%</span>
                 </div>
-                <p className="text-[11px] text-[#6B7280] mb-2">Weight for cross-institution duplicate collisions</p>
+                <p className="text-xs text-slate-500 mb-2">Weight for cross-institution duplicate collisions</p>
                 <input
                   type="range"
                   min="0"
@@ -214,12 +222,12 @@ export const RiskIntelligenceView: React.FC = () => {
                 />
               </div>
 
-              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB]">
+              <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="font-semibold text-[#111827]">Exception Density:</span>
+                  <span className="font-semibold text-slate-900">Exception Density:</span>
                   <span className="font-mono text-xs font-bold text-[#2457D6]">{weights.exceptionDensity}%</span>
                 </div>
-                <p className="text-[11px] text-[#6B7280] mb-2">Weight for ratio of exceptions to total intake</p>
+                <p className="text-xs text-slate-500 mb-2">Weight for ratio of exceptions to total intake</p>
                 <input
                   type="range"
                   min="0"
@@ -230,12 +238,12 @@ export const RiskIntelligenceView: React.FC = () => {
                 />
               </div>
 
-              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB]">
+              <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="font-semibold text-[#111827]">Late Submission:</span>
+                  <span className="font-semibold text-slate-900">Late Submission:</span>
                   <span className="font-mono text-xs font-bold text-[#2457D6]">{weights.lateSubmission}%</span>
                 </div>
-                <p className="text-[11px] text-[#6B7280] mb-2">Weight for filing past reporting deadline</p>
+                <p className="text-xs text-slate-500 mb-2">Weight for filing past reporting deadline</p>
                 <input
                   type="range"
                   min="0"
@@ -246,12 +254,12 @@ export const RiskIntelligenceView: React.FC = () => {
                 />
               </div>
 
-              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB]">
+              <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="font-semibold text-[#111827]">Corroboration Gap:</span>
+                  <span className="font-semibold text-slate-900">Corroboration Gap:</span>
                   <span className="font-mono text-xs font-bold text-[#2457D6]">{weights.corroborationGap}%</span>
                 </div>
-                <p className="text-[11px] text-[#6B7280] mb-2">Weight for missing APAAR identity links</p>
+                <p className="text-xs text-slate-500 mb-2">Weight for missing APAAR identity links</p>
                 <input
                   type="range"
                   min="0"
@@ -262,12 +270,12 @@ export const RiskIntelligenceView: React.FC = () => {
                 />
               </div>
 
-              <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB]">
+              <div className="p-3 bg-slate-50 rounded-md border border-slate-200">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="font-semibold text-[#111827]">Intake Tolerance:</span>
+                  <span className="font-semibold text-slate-900">Intake Tolerance:</span>
                   <span className="font-mono text-xs font-bold text-[#2457D6]">{tolerance}%</span>
                 </div>
-                <p className="text-[11px] text-[#6B7280] mb-2">Allowable margin before excess seats trigger overrun exceptions</p>
+                <p className="text-xs text-slate-500 mb-2">Allowable margin before excess seats trigger overrun</p>
                 <input
                   type="range"
                   min="0"
@@ -281,15 +289,15 @@ export const RiskIntelligenceView: React.FC = () => {
             </div>
 
             {/* Impact Simulation Bar & Action Buttons */}
-            <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB] flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="flex items-center gap-3 text-xs">
-                <span className="text-[11px] font-semibold text-[#4B5563]">Priority Impact:</span>
-                <div className="flex items-center gap-2 text-[11px]">
+            <div className="p-3 bg-slate-50 rounded-md border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <span className="font-semibold text-slate-700">Priority Impact:</span>
+                <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-800 font-medium border border-rose-200">
                     High: {beforeCounts.high} → <strong>{afterCounts.high}</strong>
                   </span>
                   <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-medium border border-amber-200">
-                    Moderate: {beforeCounts.mod} → <strong>{afterCounts.mod}</strong>
+                    Mod: {beforeCounts.mod} → <strong>{afterCounts.mod}</strong>
                   </span>
                   <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-medium border border-emerald-200">
                     Low: {beforeCounts.low} → <strong>{afterCounts.low}</strong>
@@ -301,7 +309,7 @@ export const RiskIntelligenceView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleResetToDefaultRules}
-                  className="px-2.5 py-1 text-xs text-[#4B5563] hover:text-[#111827] hover:bg-[#E5E7EB] border border-[#D1D5DB] rounded-md flex items-center gap-1 transition-colors cursor-pointer"
+                  className="px-2.5 py-1 text-xs text-slate-600 hover:text-slate-900 hover:bg-slate-200 border border-slate-300 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <RotateCcw className="w-3 h-3" />
                   <span>Reset to Default</span>
@@ -309,7 +317,7 @@ export const RiskIntelligenceView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={totalWeight !== 100}
-                  className="px-3.5 py-1 text-xs font-medium text-white bg-[#2457D6] hover:bg-blue-700 rounded-md disabled:opacity-40 shadow-xs transition-colors cursor-pointer"
+                  className="px-3.5 py-1 text-xs font-semibold text-white bg-[#2457D6] hover:bg-blue-700 rounded-md disabled:opacity-40 transition-colors cursor-pointer"
                 >
                   Save Scoring Rules
                 </button>
@@ -319,30 +327,13 @@ export const RiskIntelligenceView: React.FC = () => {
         </Card>
       )}
 
-      {/* Regulatory Safeguards Callout Box */}
-      <div className="p-3.5 bg-[#0B1F3A] text-slate-200 rounded-lg border border-[#1E3A8A] text-xs space-y-1.5">
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
-          <h3 className="font-semibold text-white tracking-wide">
-            Regulatory Integrity Safeguards & Operational Policy
-          </h3>
-        </div>
-        <p className="text-slate-300 text-[11px] leading-relaxed">
-          The AERVIS score is an operational <strong>review-priority indicator (0–100)</strong>{' '}
-          designed strictly to prioritize council examiner scrutiny. It does <strong>not</strong>{' '}
-          constitute a finding of fraud or statutory non-compliance. Missing or unverified data must
-          never be construed automatically as evidence of misconduct. Authorized reviewers may record
-          reasoned manual overrides with complete audit trail provenance.
-        </p>
-      </div>
-
       {/* Main Split Grid: Left Priority Matrix / Right Explainability Inspector */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Ranked Priority Directory (5 cols) */}
         <div className="lg:col-span-5">
           <Card
             title="Institution Priority Ranking"
-            subtitle="Ranked deterministically by composite priority score"
+            description="Ranked deterministically by composite priority score"
             actions={
               <div className="flex items-center gap-1">
                 {(['all', 'High', 'Moderate', 'Low'] as const).map((t) => (
@@ -350,10 +341,10 @@ export const RiskIntelligenceView: React.FC = () => {
                     key={t}
                     type="button"
                     onClick={() => setTierFilter(t)}
-                    className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer ${
+                    className={`px-2 py-0.5 rounded text-xs font-semibold transition-colors cursor-pointer ${
                       tierFilter === t
-                        ? 'bg-[#111827] text-white'
-                        : 'text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6]'
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
                     }`}
                   >
                     {t === 'all' ? 'All' : t}
@@ -363,7 +354,7 @@ export const RiskIntelligenceView: React.FC = () => {
             }
             noPadding
           >
-            <div className="divide-y divide-[#F3F4F6] max-h-[560px] overflow-y-auto">
+            <div className="divide-y divide-slate-100 max-h-[560px] overflow-y-auto">
               {rankedInstitutions.map(({ inst, risk }) => {
                 const isSelected = inst.id === selectedInstId;
                 const excess = inst.reportedEnrolment - inst.approvedIntake;
@@ -373,24 +364,26 @@ export const RiskIntelligenceView: React.FC = () => {
                     key={inst.id}
                     onClick={() => setSelectedInstId(inst.id)}
                     className={`p-3.5 cursor-pointer transition-colors flex items-center justify-between gap-3 ${
-                      isSelected ? 'bg-blue-50/50' : 'hover:bg-[#F9FAFB]'
+                      isSelected
+                        ? 'bg-blue-50/70 border-l-[3px] border-l-[#2457D6]'
+                        : 'hover:bg-slate-50 border-l-[3px] border-l-transparent'
                     }`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-xs text-[#111827] truncate">
+                        <span className="font-semibold text-xs text-slate-900 truncate">
                           {inst.name}
                         </span>
                         {risk.overrideScore !== undefined && (
-                          <span className="text-[9px] font-mono font-medium px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded">
+                          <span className="text-xs font-mono font-medium px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded">
                             OVERRIDE
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-[#6B7280] mt-0.5">
+                      <p className="text-xs text-slate-500 mt-0.5">
                         {inst.state} · Quota: {inst.approvedIntake} / Reported: {inst.reportedEnrolment}
                         {excess > 0 && (
-                          <span className="text-rose-700 font-semibold ml-1">(+{excess})</span>
+                          <span className="text-rose-600 font-semibold ml-1">(+{excess})</span>
                         )}
                       </p>
                     </div>
@@ -400,36 +393,26 @@ export const RiskIntelligenceView: React.FC = () => {
                         <div
                           className={`text-sm font-bold font-mono tabular-nums ${
                             risk.tier === 'High'
-                              ? 'text-rose-700'
+                              ? 'text-rose-600'
                               : risk.tier === 'Moderate'
-                              ? 'text-amber-700'
-                              : 'text-emerald-700'
+                              ? 'text-amber-600'
+                              : 'text-slate-600'
                           }`}
                         >
                           {risk.effectiveScore}/100
                         </div>
-                        <span
-                          className={`text-[10px] font-semibold px-1.5 py-0.2 rounded inline-block mt-0.5 ${
-                            risk.tier === 'High'
-                              ? 'bg-rose-50 text-rose-800 border border-rose-200'
-                              : risk.tier === 'Moderate'
-                              ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                              : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                          }`}
-                        >
-                          {risk.tier}
-                        </span>
+                        <StatusChip
+                          label={risk.tier}
+                          variant={risk.tier === 'High' ? 'danger' : risk.tier === 'Moderate' ? 'warning' : 'neutral'}
+                          size="sm"
+                          showDot={false}
+                        />
                       </div>
-                      <ChevronRight className="w-4 h-4 text-[#9CA3AF]" />
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
                     </div>
                   </div>
                 );
               })}
-            </div>
-
-            <div className="p-3 border-t border-[#E5E7EB] text-[11px] text-[#6B7280] flex justify-between bg-[#F9FAFB]">
-              <span>Formula v1.2 · Deterministic</span>
-              <span>Weights sum to 100%</span>
             </div>
           </Card>
         </div>
@@ -438,53 +421,54 @@ export const RiskIntelligenceView: React.FC = () => {
         <div className="lg:col-span-7">
           <Card>
             {riskProfile && selectedInst && (
-              <div className="space-y-4">
-                {/* Institution Header & Score Card */}
-                <div className="flex items-start justify-between pb-3.5 border-b border-[#E5E7EB] gap-4">
+              <div className="space-y-5">
+                {/* 1. Large 40px Score with Low/Moderate/High Chip at Top */}
+                <div className="flex items-start justify-between pb-4 border-b border-slate-200 gap-4">
                   <div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#F3F4F6] text-[#4B5563] font-semibold border border-[#E5E7EB]">
+                    <span className="text-xs font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold border border-slate-200">
                       CODE: {selectedInst.code}
                     </span>
-                    <h3 className="text-base font-bold text-[#111827] mt-1.5">{selectedInst.name}</h3>
-                    <p className="text-xs text-[#6B7280] mt-0.5">
-                      {selectedInst.state} · {selectedInst.type} · Approved Programmes:{' '}
-                      {selectedInst.approvedProgrammesCount}
+                    <h3 className="text-lg font-semibold text-slate-900 mt-2">{selectedInst.name}</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {selectedInst.state} · {selectedInst.type} · Approved Programmes: {selectedInst.approvedProgrammesCount}
                     </p>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-2xl font-bold font-mono text-[#111827] tabular-nums">
+                    <div className="text-[40px] leading-none font-bold font-mono text-slate-900 tabular-nums">
                       {riskProfile.effectiveScore}
-                      <span className="text-xs font-normal text-[#9CA3AF]">/100</span>
+                      <span className="text-sm font-normal text-slate-400">/100</span>
                     </div>
-                    <span
-                      className={`text-xs font-semibold px-2 py-0.5 rounded inline-block mt-0.5 ${
-                        riskProfile.tier === 'High'
-                          ? 'bg-rose-50 text-rose-800 border border-rose-200'
-                          : riskProfile.tier === 'Moderate'
-                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                          : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                      }`}
-                    >
-                      {riskProfile.tier} Review Priority
-                    </span>
+                    <div className="mt-1.5 flex justify-end">
+                      <StatusChip
+                        label={`${riskProfile.tier} Review Priority`}
+                        variant={
+                          riskProfile.tier === 'High'
+                            ? 'danger'
+                            : riskProfile.tier === 'Moderate'
+                            ? 'warning'
+                            : 'neutral'
+                        }
+                        size="md"
+                      />
+                    </div>
                   </div>
                 </div>
 
-                {/* Explainable Narrative Statement */}
-                <div className="p-3 bg-[#F9FAFB] rounded-md border border-[#E5E7EB] text-xs space-y-1">
-                  <div className="flex items-center gap-1.5 font-semibold text-[#111827]">
+                {/* 2. Plain-Language Explanation in a clearly separated card (14px/22px) */}
+                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-semibold text-xs text-slate-900 uppercase tracking-wider">
                     <HelpCircle className="w-3.5 h-3.5 text-[#2457D6]" />
                     <span>Explainable Triage Rationale</span>
                   </div>
-                  <p className="text-[#4B5563] leading-relaxed text-[11px]">
+                  <p className="text-sm leading-[22px] text-slate-700">
                     {riskProfile.plainExplanation}
                   </p>
                 </div>
 
                 {/* Active Override Banner if present */}
                 {riskProfile.overrideScore !== undefined && (
-                  <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-md text-xs text-amber-950 space-y-1">
+                  <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-md text-xs text-amber-950 space-y-1">
                     <div className="flex items-center justify-between">
                       <span className="font-semibold text-amber-900">
                         Manual Reviewer Override Applied
@@ -492,42 +476,53 @@ export const RiskIntelligenceView: React.FC = () => {
                       <button
                         type="button"
                         onClick={handleRemoveOverride}
-                        className="text-[11px] text-amber-800 hover:underline font-medium cursor-pointer"
+                        className="text-xs text-amber-800 hover:underline font-semibold cursor-pointer"
                       >
                         Reset to Engine Score ({riskProfile.calculatedScore})
                       </button>
                     </div>
-                    <p className="text-[11px] text-amber-900 leading-relaxed">
+                    <p className="text-xs text-amber-900 leading-relaxed">
                       Justification: &quot;{riskProfile.overrideReason}&quot;
                     </p>
-                    <p className="text-[10px] text-amber-800 font-mono">
+                    <p className="text-xs text-amber-800 font-mono">
                       Recorded by: {riskProfile.overrideBy} at {riskProfile.overrideTimestamp}
                     </p>
                   </div>
                 )}
 
-                {/* 5 Explainable Indicator Bars */}
+                {/* 3. Contributing Indicators Sorted by Impact (Top Contributor Emphasized) */}
                 <div className="space-y-3">
-                  <h4 className="text-xs font-semibold text-[#111827] uppercase tracking-wide">
-                    Indicator Contribution Breakdown
-                  </h4>
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-semibold text-slate-900 uppercase tracking-wider">
+                      Contributing Indicators (Sorted by Impact)
+                    </h4>
+                    <span className="text-xs text-slate-400 font-medium">Top contributor highlighted</span>
+                  </div>
+
                   <div className="space-y-2.5">
-                    {riskProfile.indicators.map((ind) => {
+                    {sortedIndicators.map((ind, idx) => {
+                      const isTop = idx === 0 && ind.scoreContribution > 0;
                       const pct = ind.weight > 0 ? (ind.scoreContribution / ind.weight) * 100 : 0;
                       return (
                         <div
                           key={ind.indicatorId}
-                          className="p-2.5 bg-[#F9FAFB] rounded-md border border-[#E5E7EB] text-xs space-y-1.5"
+                          className={`p-3 rounded-lg border text-xs space-y-1.5 transition-colors ${
+                            isTop
+                              ? 'bg-blue-50/50 border-blue-200 ring-1 ring-blue-300'
+                              : 'bg-slate-50 border-slate-200'
+                          }`}
                         >
                           <div className="flex items-center justify-between">
-                            <span className="font-semibold text-[#111827]">{ind.name}</span>
-                            <span className="font-mono text-xs text-[#374151]">
+                            <span className={`font-semibold ${isTop ? 'text-slate-900 text-sm' : 'text-slate-800'}`}>
+                              {ind.name} {isTop && <span className="text-xs font-semibold text-[#2457D6] ml-1.5">(Primary Factor)</span>}
+                            </span>
+                            <span className="font-mono text-xs font-bold text-slate-900">
                               +{ind.scoreContribution} pts{' '}
-                              <span className="text-[#9CA3AF]">(wt: {ind.weight}%)</span>
+                              <span className="text-slate-400 font-normal">(wt: {ind.weight}%)</span>
                             </span>
                           </div>
 
-                          <div className="w-full bg-[#E5E7EB] h-1.5 rounded-full overflow-hidden">
+                          <div className={`w-full h-2 rounded-full overflow-hidden ${isTop ? 'bg-blue-100' : 'bg-slate-200'}`}>
                             <div
                               className={`h-full rounded-full ${
                                 pct > 60
@@ -540,10 +535,10 @@ export const RiskIntelligenceView: React.FC = () => {
                             />
                           </div>
 
-                          <div className="flex items-center justify-between text-[11px] text-[#6B7280]">
-                            <span>Finding: {ind.rawValue}</span>
+                          <div className="flex items-center justify-between text-xs text-slate-500">
+                            <span>Finding: <strong className="text-slate-700">{ind.rawValue}</strong></span>
                             <span className="truncate max-w-[280px] text-right" title={ind.threshold}>
-                              Rule: {ind.threshold}
+                              Threshold: {ind.threshold}
                             </span>
                           </div>
                         </div>
@@ -553,8 +548,8 @@ export const RiskIntelligenceView: React.FC = () => {
                 </div>
 
                 {/* Footer Action: Reasoned Override Button */}
-                <div className="pt-3 border-t border-[#E5E7EB] flex items-center justify-between text-xs">
-                  <span className="text-[#6B7280]">
+                <div className="pt-3 border-t border-slate-200 flex items-center justify-between text-xs">
+                  <span className="text-slate-500">
                     Need to calibrate priority based on official documentary evidence?
                   </span>
                   <button
@@ -563,7 +558,7 @@ export const RiskIntelligenceView: React.FC = () => {
                       setOverrideScore(riskProfile.effectiveScore.toString());
                       setOverrideModalOpen(true);
                     }}
-                    className="px-3 py-1.5 text-xs font-medium text-[#2457D6] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                    className="px-3 py-1.5 text-xs font-semibold text-[#2457D6] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>Record Reasoned Override</span>
@@ -575,19 +570,24 @@ export const RiskIntelligenceView: React.FC = () => {
         </div>
       </div>
 
+      {/* 4. One-Line Safeguard Caption */}
+      <footer className="text-xs text-slate-400 text-center pb-2">
+        AERVIS review-priority score (0–100) triages council scrutiny. It is an operational indicator and does not constitute a finding of fraud or misconduct.
+      </footer>
+
       {/* Reasoned Override Modal */}
       {overrideModalOpen && (
-        <div className="fixed inset-0 bg-[#0B1F3A]/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl border border-[#E5E7EB] max-w-md w-full p-5 text-[#111827] space-y-4">
-            <h3 className="text-sm font-bold text-[#111827]">Record Reasoned Score Override</h3>
-            <p className="text-xs text-[#6B7280]">
-              Institution: <strong className="text-[#111827]">{selectedInst.name}</strong> (Baseline
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl border border-slate-200 max-w-md w-full p-6 text-slate-900 space-y-4">
+            <h3 className="text-base font-semibold text-slate-900">Record Reasoned Score Override</h3>
+            <p className="text-xs text-slate-500">
+              Institution: <strong className="text-slate-900">{selectedInst.name}</strong> (Baseline
               Engine Score: <span className="font-mono">{riskProfile?.calculatedScore}</span>)
             </p>
 
             <form onSubmit={handleSaveOverride} className="space-y-3 text-xs">
               <div>
-                <label className="block font-medium text-[#374151] mb-1">
+                <label className="block font-medium text-slate-700 mb-1">
                   Adjusted Review Priority Score (0–100)
                 </label>
                 <input
@@ -596,13 +596,13 @@ export const RiskIntelligenceView: React.FC = () => {
                   max="100"
                   value={overrideScore}
                   onChange={(e) => setOverrideScore(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-[#F9FAFB] border border-[#D1D5DB] rounded-md font-mono focus:outline-none focus:border-[#2457D6]"
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-md font-mono focus:outline-none focus:border-[#2457D6]"
                   required
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-[#374151] mb-1">
+                <label className="block font-medium text-slate-700 mb-1">
                   Mandatory Audit Justification
                 </label>
                 <textarea
@@ -610,22 +610,22 @@ export const RiskIntelligenceView: React.FC = () => {
                   onChange={(e) => setOverrideReason(e.target.value)}
                   rows={3}
                   placeholder="e.g. Discrepancy substantiated as state-sanctioned supernumerary quota via CET order #449"
-                  className="w-full px-2.5 py-1.5 bg-[#F9FAFB] border border-[#D1D5DB] rounded-md focus:outline-none focus:border-[#2457D6] text-xs"
+                  className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-md focus:outline-none focus:border-[#2457D6] text-xs"
                   required
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#E5E7EB]">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setOverrideModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-[#4B5563] hover:bg-[#F3F4F6] rounded-md cursor-pointer"
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-md cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-3.5 py-1.5 text-xs font-medium text-white bg-[#2457D6] hover:bg-blue-700 rounded-md shadow-xs cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#2457D6] hover:bg-blue-700 rounded-md shadow-xs cursor-pointer"
                 >
                   Save Override & Log Audit
                 </button>
@@ -634,7 +634,6 @@ export const RiskIntelligenceView: React.FC = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

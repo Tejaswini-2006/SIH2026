@@ -89,7 +89,7 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ record, 
       {/* Status Strip */}
       <div className="grid grid-cols-3 border-b border-[#E5E7EB] bg-[#F9FAFB] text-xs divide-x divide-[#E5E7EB]">
         <div className="p-3">
-          <span className="text-[11px] text-[#6B7280]">Lifecycle Status</span>
+          <span className="text-xs text-[#6B7280]">Lifecycle Status</span>
           <div className="mt-1">
             <StatusChip
               label={record.enrolmentStatus}
@@ -105,13 +105,13 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ record, 
           </div>
         </div>
         <div className="p-3">
-          <span className="text-[11px] text-[#6B7280]">Validation State</span>
+          <span className="text-xs text-[#6B7280]">Validation State</span>
           <div className="mt-1">
             <SeverityChip severity={record.validationStatus} size="sm" />
           </div>
         </div>
         <div className="p-3">
-          <span className="text-[11px] text-[#6B7280]">Admission Date</span>
+          <span className="text-xs text-[#6B7280]">Admission Date</span>
           <p className="text-xs font-mono tabular-nums text-[#111827] mt-1 font-medium">{record.admissionDate}</p>
         </div>
       </div>
@@ -140,23 +140,23 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ record, 
               <h4 className="text-xs font-semibold text-[#111827]">Identity & Admission Parameters</h4>
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <span className="text-[11px] text-[#6B7280]">Masked Student Name</span>
+                  <span className="text-xs text-[#6B7280]">Masked Student Name</span>
                   <p className="font-medium text-[#111827] mt-0.5">{record.maskedStudentName}</p>
                 </div>
                 <div>
-                  <span className="text-[11px] text-[#6B7280]">Synthetic APAAR ID (Fictional)</span>
+                  <span className="text-xs text-[#6B7280]">Synthetic APAAR ID (Fictional)</span>
                   <p className="font-mono text-xs font-medium text-[#111827] mt-0.5">{record.syntheticApaarId}</p>
                 </div>
                 <div>
-                  <span className="text-[11px] text-[#6B7280]">Demographic Category</span>
+                  <span className="text-xs text-[#6B7280]">Demographic Category</span>
                   <p className="font-medium text-[#111827] mt-0.5">{record.gender} · {record.category}</p>
                 </div>
                 <div>
-                  <span className="text-[11px] text-[#6B7280]">Academic Cycle</span>
+                  <span className="text-xs text-[#6B7280]">Academic Cycle</span>
                   <p className="font-medium text-[#111827] mt-0.5">AY {record.academicYear}</p>
                 </div>
                 <div className="col-span-2">
-                  <span className="text-[11px] text-[#6B7280]">Institution</span>
+                  <span className="text-xs text-[#6B7280]">Institution</span>
                   <p className="font-medium text-[#111827] mt-0.5">{record.institutionName}</p>
                 </div>
               </div>
@@ -178,7 +178,7 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ record, 
                   <h5 className="font-semibold text-[#111827]">Record Correction Form</h5>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-medium text-[#4B5563] mb-1">New Status</label>
+                      <label className="block text-xs font-medium text-[#4B5563] mb-1">New Status</label>
                       <select
                         value={newStatus}
                         onChange={(e) => setNewStatus(e.target.value as EnrolmentStatus)}
@@ -192,7 +192,7 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ record, 
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Justification Reason</label>
+                      <label className="block text-xs font-medium text-[#4B5563] mb-1">Justification Reason</label>
                       <input
                         type="text"
                         value={justification}
@@ -232,7 +232,7 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ record, 
                 <ShieldCheck className="w-4 h-4 text-[#2457D6] shrink-0 mt-0.5" />
                 <div>
                   <h4 className="font-semibold text-[#111827]">Corroboration Signals</h4>
-                  <p className="text-[11px] text-[#6B7280] mt-0.5">
+                  <p className="text-xs text-[#6B7280] mt-0.5">
                     <strong>Simulated — No live connection.</strong> Mock external adapters simulate identity and seat allotment checks.
                   </p>
                 </div>
@@ -243,7 +243,7 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ record, 
               <div className="p-3 flex items-center justify-between">
                 <div>
                   <p className="font-medium text-[#111827]">Admission Register Match</p>
-                  <p className="text-[11px] text-[#6B7280]">Presence in college ERP admission roster</p>
+                  <p className="text-xs text-[#6B7280]">Presence in college ERP admission roster</p>
                 </div>
                 <StatusChip
                   label={record.corroboration.admissionRecordPresent ? 'Confirmed' : 'Absent'}
@@ -255,7 +255,7 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ record, 
               <div className="p-3 flex items-center justify-between">
                 <div>
                   <p className="font-medium text-[#111827]">Approved Programme Mapping</p>
-                  <p className="text-[11px] text-[#6B7280]">Matches council-sanctioned EoA listing</p>
+                  <p className="text-xs text-[#6B7280]">Matches council-sanctioned EoA listing</p>
                 </div>
                 <StatusChip
                   label={record.corroboration.programmeMappingValid ? 'Verified' : 'Invalid'}
@@ -267,7 +267,7 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ record, 
               <div className="p-3 flex items-center justify-between">
                 <div>
                   <p className="font-medium text-[#111827]">Institutional Supporting Evidence</p>
-                  <p className="text-[11px] text-[#6B7280]">Allotment order or fee receipt</p>
+                  <p className="text-xs text-[#6B7280]">Allotment order or fee receipt</p>
                 </div>
                 <StatusChip
                   label={record.corroboration.supportingEvidenceAvailable ? 'Available' : 'Pending'}
@@ -279,7 +279,7 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ record, 
               <div className="p-3 flex items-center justify-between">
                 <div>
                   <p className="font-medium text-[#111827]">External Adapter Signal</p>
-                  <p className="text-[11px] text-[#6B7280]">{record.corroboration.evidenceSource}</p>
+                  <p className="text-xs text-[#6B7280]">{record.corroboration.evidenceSource}</p>
                 </div>
                 <StatusChip
                   label={record.corroboration.externalAdapterStatus}
@@ -295,7 +295,7 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ record, 
               </div>
             </div>
 
-            <div className="p-2.5 bg-[#F9FAFB] rounded text-[11px] text-[#6B7280] space-y-1">
+            <div className="p-2.5 bg-[#F9FAFB] rounded text-xs text-[#6B7280] space-y-1">
               <div><strong>Signal Timestamp:</strong> <span className="font-mono">{record.corroboration.evidenceTimestamp}</span></div>
               <div><strong>Notes:</strong> {record.corroboration.notes}</div>
             </div>
@@ -309,10 +309,10 @@ export const RecordDetailDrawer: React.FC<RecordDetailDrawerProps> = ({ record, 
               <div key={idx} className="p-3 border border-[#E5E7EB] rounded-lg text-xs space-y-1">
                 <div className="flex justify-between items-center font-medium text-[#111827]">
                   <span>{h.action}</span>
-                  <span className="font-mono text-[11px] text-[#6B7280]">{h.timestamp}</span>
+                  <span className="font-mono text-xs text-[#6B7280]">{h.timestamp}</span>
                 </div>
                 <p className="text-[#4B5563]">{h.details}</p>
-                <p className="text-[10px] text-[#6B7280]">Actor: {h.actor}</p>
+                <p className="text-xs text-[#6B7280]">Actor: {h.actor}</p>
               </div>
             ))}
           </div>

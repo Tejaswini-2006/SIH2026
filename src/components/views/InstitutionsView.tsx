@@ -160,66 +160,49 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
     onNavigateToCases();
   };
 
-  // Columns definition
+  // Columns definition according to Part 1 & Part 6:
+  // Primary cell: Institution name (14px font-semibold), secondary info stacked beneath in muted 12px
+  // Highlight only genuinely actionable rows (over intake)
   const columns: ColumnDef<Institution>[] = [
     {
-      key: 'code',
-      header: 'Code',
-      width: '120px',
-      sortable: true,
-      render: (inst) => (
-        <span className="font-mono text-xs text-[#4B5563] whitespace-nowrap">
-          {inst.code}
-        </span>
-      ),
-    },
-    {
       key: 'name',
-      header: 'Institution Name',
+      header: 'Institution',
       sortable: true,
+      className: 'min-w-[260px]',
       render: (inst) => {
         const excess = inst.reportedEnrolment - inst.approvedIntake;
+        const isOver = excess > 0;
         return (
-          <div className="min-w-0 pr-2">
-            <Tooltip content={inst.name}>
-              <span className="font-medium text-xs text-[#111827] truncate block max-w-sm">
+          <div className="py-1">
+            <div className="flex items-center gap-2">
+              <span className={`text-sm font-semibold truncate block max-w-sm ${isOver ? 'text-slate-900' : 'text-slate-800'}`}>
                 {inst.name}
               </span>
-            </Tooltip>
-            <span className="text-[11px] text-[#6B7280]">
-              {inst.approvedProgrammesCount} Programmes · AY {inst.academicYear}
-            </span>
+              {isOver && (
+                <span className="text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded shrink-0">
+                  +{excess} excess
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2 font-normal">
+              <span className="font-mono text-slate-600">{inst.code}</span>
+              <span>·</span>
+              <span>{inst.state}</span>
+              <span>·</span>
+              <span>{inst.type}</span>
+            </div>
           </div>
         );
       },
     },
     {
-      key: 'state_type',
-      header: 'State & Type',
-      width: '180px',
-      render: (inst) => (
-        <div className="whitespace-nowrap">
-          <div className="font-medium text-xs text-[#111827]">{inst.state}</div>
-          <div className="text-[11px] text-[#6B7280]">
-            {inst.type === 'Private Unaided' ? (
-              <Tooltip content="Private institution receiving no state grant-in-aid">
-                <span className="cursor-help underline decoration-dotted">{inst.type}</span>
-              </Tooltip>
-            ) : (
-              inst.type
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
       key: 'intake',
       header: 'Quota',
-      width: '80px',
+      width: '90px',
       align: 'right',
       sortable: true,
       render: (inst) => (
-        <span className="tabular-nums font-mono text-xs text-[#4B5563]">
+        <span className="tabular-nums font-mono text-xs text-slate-600">
           {inst.approvedIntake}
         </span>
       ),
@@ -234,7 +217,7 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
         const excess = inst.reportedEnrolment - inst.approvedIntake;
         const isOver = excess > 0;
         return (
-          <span className={`tabular-nums font-mono text-xs font-semibold ${isOver ? 'text-rose-700' : 'text-[#111827]'}`}>
+          <span className={`tabular-nums font-mono text-xs font-bold ${isOver ? 'text-rose-600' : 'text-slate-900'}`}>
             {inst.reportedEnrolment}
           </span>
         );
@@ -243,33 +226,31 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
     {
       key: 'utilization',
       header: 'Intake Utilization',
-      width: '160px',
+      width: '180px',
       render: (inst) => {
         const excess = inst.reportedEnrolment - inst.approvedIntake;
         const pct = (inst.reportedEnrolment / inst.approvedIntake) * 100;
         const isOver = excess > 0;
 
-        // Semantic utilization color:
-        // neutral/blue below 100%, amber when exactly 100% or within tolerance, red strictly over quota
         const barColor = isOver
           ? 'bg-rose-600'
           : inst.reportedEnrolment === inst.approvedIntake
           ? 'bg-amber-500'
-          : 'bg-[#2457D6]';
+          : 'bg-slate-300';
 
         return (
-          <div className="w-full max-w-[140px] space-y-1">
-            <div className="flex justify-between items-center text-[11px]">
-              <span className="tabular-nums font-mono text-[#6B7280]">{pct.toFixed(1)}%</span>
-              {isOver ? (
-                <span className="text-rose-700 font-semibold tabular-nums text-[11px]">+{excess} over</span>
-              ) : (
-                <span className="text-[#6B7280] text-[11px]">Within quota</span>
-              )}
+          <div className="w-full pr-2">
+            <div className="flex items-center justify-between text-xs mb-1 tabular-nums font-medium">
+              <span className={isOver ? 'text-rose-600 font-bold' : 'text-slate-600'}>
+                {pct.toFixed(0)}%
+              </span>
+              <span className="text-xs text-slate-400">
+                {inst.reportedEnrolment}/{inst.approvedIntake} seats
+              </span>
             </div>
-            <div className="h-1.5 w-full bg-[#F3F4F6] rounded overflow-hidden">
+            <div className="h-2 w-full bg-slate-100 rounded-sm overflow-hidden">
               <div
-                className={`h-full rounded ${barColor}`}
+                className={`h-full rounded-sm ${barColor}`}
                 style={{ width: `${Math.min(100, pct)}%` }}
               />
             </div>
@@ -280,14 +261,22 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
     {
       key: 'priority',
       header: 'Review Priority',
-      width: '130px',
+      width: '150px',
       sortable: true,
       render: (inst) => {
         const risk = getInstitutionRisk(inst.id);
         return (
-          <div className="flex items-center gap-1.5">
-            <span className="font-mono text-xs font-semibold tabular-nums text-[#111827]">
-              {risk.effectiveScore}
+          <div className="flex items-center gap-2">
+            <span
+              className={`font-mono text-xs font-bold tabular-nums ${
+                risk.tier === 'High'
+                  ? 'text-rose-600'
+                  : risk.tier === 'Moderate'
+                  ? 'text-amber-600'
+                  : 'text-slate-500'
+              }`}
+            >
+              {risk.effectiveScore}/100
             </span>
             <SeverityChip severity={risk.tier} size="sm" />
           </div>
@@ -295,123 +284,84 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
       },
     },
     {
-      key: 'status',
-      header: 'Submission Status',
-      width: '140px',
-      render: (inst) => {
-        const excess = inst.reportedEnrolment - inst.approvedIntake;
-        // Show over intake label strictly when over intake
-        if (excess > 0) {
-          return <StatusChip label="Over Intake" variant="danger" size="sm" />;
-        }
-        if (inst.submissionStatus === 'Late Submission') {
-          return <StatusChip label="Late Submission" variant="warning" size="sm" />;
-        }
-        return <StatusChip label="Submitted" variant="success" size="sm" />;
-      },
-    },
-    {
-      key: 'action',
+      key: 'actions',
       header: '',
-      width: '40px',
+      width: '80px',
       align: 'right',
-      render: () => (
-        <ChevronRight className="w-4 h-4 text-[#9CA3AF] shrink-0" />
+      render: (inst) => (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedInstitution(inst);
+          }}
+          className="text-xs font-semibold text-[#2457D6] hover:text-blue-800 flex items-center gap-0.5 ml-auto cursor-pointer"
+        >
+          <span>Inspect</span>
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
       ),
     },
   ];
 
   return (
-    <div className="max-w-[1360px] mx-auto space-y-5">
-      {/* Page Header */}
+    <div className="max-w-[1360px] mx-auto space-y-6">
+      {/* Page Header (Consolidated without decorative count box) */}
       <PageHeader
-        title="Approved Institutions"
-        description="Comprehensive directory of AICTE-approved institutions with capacity utilization and explainable review priority scores."
+        title="Institutions"
+        subtitle="Directory of AICTE-approved technical colleges, quota allocations, and reported admissions."
       />
 
       {/* Filter Bar */}
       <FilterBar
-        searchValue={searchQuery}
-        onSearchChange={(v) => {
-          setSearchQuery(v);
-          setCurrentPage(1);
-        }}
-        searchPlaceholder="Search institution name, code, or state..."
-        activeFilters={activeChips}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search by college name, code, or state..."
+        dropdowns={[
+          {
+            id: 'state',
+            label: 'State',
+            value: selectedState,
+            options: [
+              { label: 'All States', value: 'all' },
+              ...states.map((s) => ({ label: s, value: s })),
+            ],
+            onChange: setSelectedState,
+          },
+          {
+            id: 'type',
+            label: 'Management Type',
+            value: selectedType,
+            options: [
+              { label: 'All Types', value: 'all' },
+              ...types.map((t) => ({ label: t, value: t })),
+            ],
+            onChange: setSelectedType,
+          },
+          {
+            id: 'priority',
+            label: 'Risk Tier',
+            value: selectedPriority,
+            options: [
+              { label: 'All Tiers', value: 'all' },
+              { label: 'High Priority (70+)', value: 'High' },
+              { label: 'Moderate Priority (40-69)', value: 'Moderate' },
+              { label: 'Low Priority (<40)', value: 'Low' },
+            ],
+            onChange: setSelectedPriority,
+          },
+        ]}
+        activeChips={activeChips}
         onClearAll={handleClearAll}
-        showingCount={filteredInstitutions.length}
         totalCount={institutions.length}
-        densityToggle={
-          <div className="flex items-center gap-1 border-l border-[#E5E7EB] pl-3 ml-2">
-            <span className="text-[11px] text-[#6B7280]">Density:</span>
-            <button
-              type="button"
-              onClick={() => setDensity(density === 'comfortable' ? 'compact' : 'comfortable')}
-              className="text-xs px-2 py-0.5 rounded border border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F9FAFB] font-medium"
-            >
-              {density === 'comfortable' ? 'Comfortable' : 'Compact'}
-            </button>
-          </div>
-        }
-      >
-        {/* State Select */}
-        <select
-          value={selectedState}
-          onChange={(e) => {
-            setSelectedState(e.target.value);
-            setCurrentPage(1);
-          }}
-          aria-label="Filter by state"
-          className="px-2.5 py-1.5 text-xs bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-[#374151] focus:outline-none focus:ring-1 focus:ring-[#2457D6] cursor-pointer"
-        >
-          <option value="all">All States ({states.length})</option>
-          {states.map((st) => (
-            <option key={st} value={st}>
-              {st}
-            </option>
-          ))}
-        </select>
+        filteredCount={filteredInstitutions.length}
+      />
 
-        {/* Type Select */}
-        <select
-          value={selectedType}
-          onChange={(e) => {
-            setSelectedType(e.target.value);
-            setCurrentPage(1);
-          }}
-          aria-label="Filter by institution type"
-          className="px-2.5 py-1.5 text-xs bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-[#374151] focus:outline-none focus:ring-1 focus:ring-[#2457D6] cursor-pointer"
-        >
-          <option value="all">All Institution Types</option>
-          {types.map((tp) => (
-            <option key={tp} value={tp}>
-              {tp}
-            </option>
-          ))}
-        </select>
-
-        {/* Priority Select */}
-        <select
-          value={selectedPriority}
-          onChange={(e) => {
-            setSelectedPriority(e.target.value);
-            setCurrentPage(1);
-          }}
-          aria-label="Filter by review priority"
-          className="px-2.5 py-1.5 text-xs bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-[#374151] focus:outline-none focus:ring-1 focus:ring-[#2457D6] cursor-pointer"
-        >
-          <option value="all">All Priority Tiers</option>
-          <option value="High">High (&ge;70)</option>
-          <option value="Moderate">Moderate (40–69)</option>
-          <option value="Low">Low (&lt;40)</option>
-        </select>
-      </FilterBar>
-
-      {/* Main Table */}
+      {/* Institutions Table */}
       <DataTable
         columns={columns}
         data={paginatedInstitutions}
-        keyExtractor={(i) => i.id}
+        keyExtractor={(inst) => inst.id}
         onRowClick={(inst) => setSelectedInstitution(inst)}
         selectedId={selectedInstitution?.id}
         sortField={sortField}
@@ -422,89 +372,82 @@ export const InstitutionsView: React.FC<InstitutionsViewProps> = ({
         pageSize={pageSize}
         totalItems={filteredInstitutions.length}
         onPageChange={setCurrentPage}
-        onPageSizeChange={(sz) => {
-          setPageSize(sz);
-          setCurrentPage(1);
-        }}
+        onPageSizeChange={setPageSize}
+        pageSizeOptions={[10, 20]}
+        stickyHeader
       />
 
-      {/* Selected Institution Drawer */}
+      {/* Institution Detail Drawer */}
       {selectedInstitution && (
         <InstitutionDetailDrawer
           institution={selectedInstitution}
           onClose={() => setSelectedInstitution(null)}
+          onNavigateToRecords={onNavigateToRecords}
           onOpenCase={handleOpenCaseModal}
-          onNavigateToRecords={(name) => {
-            setSelectedInstitution(null);
-            onNavigateToRecords(name);
-          }}
         />
       )}
 
-      {/* Open Case Modal */}
+      {/* New Audit Case Modal */}
       {newCaseModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl border border-[#E5E7EB] max-w-md w-full p-5 text-[#111827] space-y-4">
-            <h3 className="text-sm font-semibold text-[#111827]">Open Regulatory Audit Case</h3>
-            <form onSubmit={handleCreateCaseSubmit} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Target Institution</label>
-                <select
-                  value={caseTargetInstId}
-                  onChange={(e) => setCaseTargetInstId(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-[#111827]"
-                  required
-                >
-                  {institutions.map((i) => (
-                    <option key={i.id} value={i.id}>
-                      {i.name} ({i.code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Priority Classification</label>
-                <select
-                  value={casePriority}
-                  onChange={(e) => setCasePriority(e.target.value as any)}
-                  className="w-full px-2.5 py-1.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-[#111827]"
-                >
-                  <option value="Urgent">Urgent Priority</option>
-                  <option value="High">High Priority</option>
-                  <option value="Normal">Normal Priority</option>
-                  <option value="Low">Low Priority</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-[#4B5563] mb-1">Inquiry Terms & Notes</label>
-                <textarea
-                  value={caseSummary}
-                  onChange={(e) => setCaseSummary(e.target.value)}
-                  rows={3}
-                  className="w-full px-2.5 py-1.5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-md text-[#111827]"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setNewCaseModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-[#4B5563] hover:bg-[#F3F4F6] rounded-md border border-[#E5E7EB]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-[#2457D6] hover:bg-blue-700 rounded-md"
-                >
-                  Open Case
-                </button>
-              </div>
-            </form>
-          </div>
+          <form
+            onSubmit={handleCreateCaseSubmit}
+            className="bg-white rounded-lg shadow-xl border border-slate-200 max-w-md w-full p-6 text-xs text-slate-900 space-y-4"
+          >
+            <h3 className="text-base font-semibold text-slate-900">Open Audit Inquiry Docket</h3>
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Target College</label>
+              <select
+                value={caseTargetInstId}
+                onChange={(e) => setCaseTargetInstId(e.target.value)}
+                className="w-full p-2 bg-white border border-slate-300 rounded-md"
+              >
+                {institutions.map((inst) => (
+                  <option key={inst.id} value={inst.id}>
+                    {inst.name} ({inst.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Priority</label>
+              <select
+                value={casePriority}
+                onChange={(e) => setCasePriority(e.target.value as any)}
+                className="w-full p-2 bg-white border border-slate-300 rounded-md"
+              >
+                <option value="Urgent">Urgent</option>
+                <option value="High">High</option>
+                <option value="Normal">Normal</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Inquiry Scope & Reason</label>
+              <textarea
+                value={caseSummary}
+                onChange={(e) => setCaseSummary(e.target.value)}
+                rows={3}
+                className="w-full p-2.5 bg-white border border-slate-300 rounded-md"
+                required
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setNewCaseModalOpen(false)}
+                className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#2457D6] hover:bg-blue-700 rounded-md"
+              >
+                Create docket
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

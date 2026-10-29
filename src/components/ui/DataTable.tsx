@@ -75,7 +75,7 @@ export function DataTable<T>({
       {/* Scrollable Container with sticky header */}
       <div className="overflow-x-auto w-full relative">
         <table className="w-full text-left text-xs border-collapse">
-          <thead className="bg-[#F9FAFB] border-b border-[#E5E7EB] text-[#4B5563] font-semibold sticky top-0 z-10 select-none">
+          <thead className="bg-[#F9FAFB] border-b border-[#E5E7EB] text-slate-500 font-semibold sticky top-0 z-10 select-none">
             <tr>
               {columns.map((col, idx) => {
                 const colKey = col.key || col.id || String(idx);
@@ -87,13 +87,13 @@ export function DataTable<T>({
                   <th
                     key={colKey}
                     style={{ width: col.width }}
-                    className={`px-4 py-3 whitespace-nowrap text-xs font-semibold ${col.className || ''} ${
+                    className={`px-4 py-3 whitespace-nowrap text-xs font-semibold uppercase tracking-wider ${col.className || ''} ${
                       col.align === 'right'
                         ? 'text-right'
                         : col.align === 'center'
                         ? 'text-center'
                         : 'text-left'
-                    } ${col.sortable ? 'cursor-pointer hover:text-[#111827]' : ''} ${
+                    } ${col.sortable ? 'cursor-pointer hover:text-slate-900' : ''} ${
                       isFirst ? 'sticky left-0 bg-[#F9FAFB] z-20' : ''
                     } ${isLast ? 'sticky right-0 bg-[#F9FAFB] z-20' : ''}`}
                     onClick={() => col.sortable && onSort?.(colKey)}
@@ -105,7 +105,7 @@ export function DataTable<T>({
                     >
                       <span>{col.header}</span>
                       {col.sortable && (
-                        <span className="text-[#9CA3AF]">
+                        <span className="text-slate-400">
                           {isSorted ? (
                             sortDirection === 'asc' ? (
                               <ArrowUp className="w-3.5 h-3.5 text-[#2457D6]" />
@@ -121,10 +121,10 @@ export function DataTable<T>({
               })}
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#F3F4F6] text-[#374151]">
+          <tbody className="divide-y divide-[#F3F4F6] text-slate-700">
             {data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="p-8 text-center text-[#6B7280]">
+                <td colSpan={columns.length} className="p-8 text-center text-slate-500">
                   {emptyState || 'No records found'}
                 </td>
               </tr>
@@ -178,21 +178,21 @@ export function DataTable<T>({
 
       {/* Pagination Bar */}
       {hasPagination && (
-        <div className="px-4 py-3 border-t border-[#E5E7EB] bg-[#F9FAFB] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#6B7280]">
+        <div className="px-4 py-3 border-t border-[#E5E7EB] bg-[#F9FAFB] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
           <div className="flex items-center gap-3">
             <span className="tabular-nums">
               {totalItems !== undefined && totalItems <= (pageSize || 10) ? (
                 <>
-                  Showing <strong className="text-[#111827] font-semibold">{totalItems}</strong> of{' '}
-                  <strong className="text-[#111827] font-semibold">{totalItems}</strong> records
+                  Showing <strong className="text-slate-900 font-semibold">{totalItems}</strong> of{' '}
+                  <strong className="text-slate-900 font-semibold">{totalItems}</strong> records
                 </>
               ) : (
                 <>
                   Showing{' '}
-                  <strong className="text-[#111827] font-semibold">
+                  <strong className="text-slate-900 font-semibold">
                     {totalItems === 0 ? 0 : startItem}–{endItem}
                   </strong>{' '}
-                  of <strong className="text-[#111827] font-semibold">{totalItems}</strong> records
+                  of <strong className="text-slate-900 font-semibold">{totalItems}</strong> records
                 </>
               )}
             </span>
@@ -203,7 +203,7 @@ export function DataTable<T>({
                 <select
                   value={pageSize}
                   onChange={(e) => onPageSizeChange(Number(e.target.value))}
-                  className="bg-white border border-[#E5E7EB] rounded px-1.5 py-0.5 text-xs text-[#111827] focus:outline-none focus:ring-1 focus:ring-[#2457D6]"
+                  className="bg-white border border-[#E5E7EB] rounded px-1.5 py-0.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-[#2457D6]"
                 >
                   {pageSizeOptions.map((opt) => (
                     <option key={opt} value={opt}>
@@ -217,7 +217,7 @@ export function DataTable<T>({
 
           {totalPages > 1 ? (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] tabular-nums">
+              <span className="text-xs tabular-nums">
                 Page {currentPage} of {totalPages}
               </span>
               <div className="flex items-center gap-1">
@@ -225,7 +225,7 @@ export function DataTable<T>({
                   type="button"
                   onClick={() => onPageChange?.(Math.max(1, (currentPage || 1) - 1))}
                   disabled={currentPage === 1}
-                  className="p-1.5 rounded border border-[#E5E7EB] bg-white text-[#4B5563] hover:bg-[#F3F4F6] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  className="p-1.5 rounded border border-[#E5E7EB] bg-white text-slate-600 hover:bg-[#F3F4F6] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                   aria-label="Previous page"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
@@ -234,7 +234,7 @@ export function DataTable<T>({
                   type="button"
                   onClick={() => onPageChange?.(Math.min(totalPages, (currentPage || 1) + 1))}
                   disabled={currentPage === totalPages}
-                  className="p-1.5 rounded border border-[#E5E7EB] bg-white text-[#4B5563] hover:bg-[#F3F4F6] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  className="p-1.5 rounded border border-[#E5E7EB] bg-white text-slate-600 hover:bg-[#F3F4F6] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                   aria-label="Next page"
                 >
                   <ChevronRight className="w-3.5 h-3.5" />
@@ -242,7 +242,7 @@ export function DataTable<T>({
               </div>
             </div>
           ) : (
-            <span className="text-[11px] text-[#9CA3AF]">All rows displayed</span>
+            <span className="text-xs text-slate-400">All rows displayed</span>
           )}
         </div>
       )}
