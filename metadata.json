@@ -1,0 +1,6 @@
+{
+  "name": "AERVIS - Enrollment Verification & Risk Intelligence",
+  "description": "AICTE Enrollment Verification & Risk Intelligence System prototype for intake validation, duplicate detection, explainable risk scoring, and audit management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
